@@ -41,22 +41,138 @@ def init():
     except Exception as e:
         print("minio init:", e)
 
-PAGE = """<!doctype html><title>Document Vault</title>
-<h1>Document Vault</h1>
-<p><b>Total uploads:</b> {{count}}</p>
-<form method=post enctype=multipart/form-data action=/upload>
-  <input type=file name=file required> <button>Upload</button>
-</form>
-<h3>Latest documents</h3>
-<ul>{% for d in docs %}<li>{{d[1]}} &mdash; {{d[2]}}</li>{% endfor %}</ul>"""
+PAGE = """<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document Vault</title>
+<style>
+:root{
+  --bg:#eef1f8;--card:#fff;--text:#141a29;--muted:#6b7280;--border:#e5e8f0;
+  --accent:#4f46e5;--accent2:#7c3aed;--ring:rgba(79,70,229,.35);
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 4px 16px rgba(16,24,40,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0d111c;--card:#161c2b;--text:#e8ebf3;--muted:#95a0b8;--border:#242c3e;
+        --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:840px;margin:0 auto;padding:28px 18px 64px}
+.hero{border-radius:18px;padding:30px;color:#fff;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:var(--shadow)}
+.hero h1{margin:0 0 .3rem;font-size:1.9rem;letter-spacing:-.02em;display:flex;align-items:center;gap:12px}
+.hero p{margin:0;opacity:.9;font-size:.95rem}
+.hero .chips{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
+.hero .chip{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);
+  padding:3px 10px;border-radius:999px;font-size:.75rem;font-weight:500}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+.stat .num{font-size:2rem;font-weight:700;letter-spacing:-.02em}
+.stat .lbl{color:var(--muted);font-size:.85rem;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px}
+.upload{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.filebtn{position:relative;display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+  padding:10px 16px;border-radius:10px;border:1px solid var(--border);color:var(--text);font-weight:500}
+.filebtn:hover{border-color:var(--accent)}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.fname{color:var(--muted);font-size:.9rem;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;cursor:pointer;font-weight:600;
+  padding:11px 20px;border-radius:10px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 2px 8px var(--ring)}
+.btn:hover{filter:brightness(1.06)}
+.btn:active{transform:translateY(1px)}
+h2.sec{font-size:1.05rem;margin:0 0 14px}
+ul.docs{list-style:none;margin:0;padding:0}
+ul.docs li{display:flex;align-items:center;gap:14px;padding:12px 6px;border-bottom:1px solid var(--border)}
+ul.docs li:last-child{border-bottom:0}
+.ext{flex:none;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:700;background:rgba(107,114,128,.14);color:#6b7280}
+.ext-pdf{background:rgba(224,49,49,.14);color:#e03131}
+.ext-doc,.ext-docx{background:rgba(59,125,221,.16);color:#3b7ddd}
+.ext-png,.ext-jpg,.ext-jpeg,.ext-gif{background:rgba(30,142,90,.16);color:#1e8e5a}
+.ext-xls,.ext-xlsx,.ext-csv{background:rgba(47,158,68,.16);color:#2f9e44}
+.ext-zip,.ext-rar{background:rgba(214,158,46,.16);color:#d69e2e}
+.doc-info{min-width:0;flex:1}
+.doc-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-date{color:var(--muted);font-size:.82rem}
+.empty{color:var(--muted);text-align:center;padding:28px 0}
+.footer{color:var(--muted);font-size:.8rem;text-align:center;margin-top:8px}
+@media(max-width:560px){.stats{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.btn{flex:1;justify-content:center}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M12 6v3M12 15v3M18 12h-3M9 12H6"/></svg>
+      Document Vault
+    </h1>
+    <p>Stockage sécurisé de documents — pipeline conteneurisé</p>
+    <div class="chips">
+      <span class="chip">Flask</span><span class="chip">PostgreSQL</span>
+      <span class="chip">MinIO (S3)</span><span class="chip">Redis</span>
+      <span class="chip">Kafka</span><span class="chip">Nginx</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="num">{{ total }}</div><div class="lbl">Documents stockés (PostgreSQL)</div></div>
+    <div class="stat"><div class="num">{{ count }}</div><div class="lbl">Événements d'upload (Redis)</div></div>
+  </div>
+
+  <div class="card">
+    <form class="upload" method="post" enctype="multipart/form-data" action="/upload">
+      <label class="filebtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        Choisir un fichier
+        <input type="file" name="file" required onchange="var f=this.files[0];document.getElementById('fn').textContent=f?f.name:'Aucun fichier sélectionné'">
+      </label>
+      <span id="fn" class="fname">Aucun fichier sélectionné</span>
+      <button class="btn" type="submit">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        Uploader
+      </button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Derniers documents</h2>
+    {% if docs %}
+    <ul class="docs">
+      {% for d in docs %}
+      {% set ext = (d[1].rsplit('.',1)[1]|lower) if '.' in d[1] else '' %}
+      <li>
+        <span class="ext ext-{{ ext or 'file' }}">{{ (ext or 'FILE')|upper }}</span>
+        <div class="doc-info">
+          <div class="doc-name">{{ d[1] }}</div>
+          <div class="doc-date">{{ d[2].strftime('%d/%m/%Y · %H:%M') if d[2] else '' }}</div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty">Aucun document pour le moment. Uploadez votre premier fichier ci-dessus.</div>
+    {% endif %}
+  </div>
+
+  <div class="footer">ops-platform-lab · Document Vault</div>
+</div>
+</body>
+</html>"""
 
 @app.route("/")
 def index():
     conn = db(); cur = conn.cursor()
     cur.execute("SELECT id, name, created_at FROM documents ORDER BY id DESC LIMIT 20")
-    docs = cur.fetchall(); cur.close(); conn.close()
+    docs = cur.fetchall()
+    cur.execute("SELECT COUNT(*) FROM documents")
+    total = cur.fetchone()[0]
+    cur.close(); conn.close()
     count = r.get("uploads") or 0
-    return render_template_string(PAGE, docs=docs, count=count)
+    return render_template_string(PAGE, docs=docs, count=count, total=total)
 
 @app.route("/upload", methods=["POST"])
 def upload():
