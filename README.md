@@ -50,9 +50,45 @@ across app replicas; **Prometheus + Grafana** provide observability.
 | CI / IaC | GitHub Actions, Ansible |
 
 ## Screenshots
-| Grafana — host metrics | Kubernetes — pods |
-|---|---|
-| ![Grafana dashboard](docs/screenshots/grafana.png) | ![Kubernetes pods](docs/screenshots/kubernetes.png) |
+
+All dashboards are **provisioned as code** (data source + dashboards auto-loaded on startup).
+
+**Grafana — host metrics (Node Exporter)**
+
+![Grafana host dashboard](docs/screenshots/grafana.png)
+
+**Grafana — per-container metrics (cAdvisor)**
+
+![Grafana Docker monitoring dashboard](docs/screenshots/docker-monitoring.png)
+
+**Grafana — Prometheus internals (targets, TSDB, scrape health)**
+
+![Grafana Prometheus dashboard](docs/screenshots/prometheus.png)
+
+**Kubernetes — pods (k3s)**
+
+![Kubernetes pods](docs/screenshots/kubernetes.png)
+
+<details>
+<summary><b>More monitoring views</b></summary>
+
+**Docker monitoring — memory & network per container**
+
+![Docker memory and network](docs/screenshots/docker-monitoring-network.png)
+
+**Prometheus — scrape targets & sync**
+
+![Prometheus targets](docs/screenshots/prometheus-targets.png)
+
+**Prometheus — TSDB internals**
+
+![Prometheus TSDB](docs/screenshots/prometheus-tsdb.png)
+
+**Prometheus — query engine**
+
+![Prometheus query engine](docs/screenshots/prometheus-engine.png)
+
+</details>
 
 ## Quickstart (Docker Compose)
 ```bash
