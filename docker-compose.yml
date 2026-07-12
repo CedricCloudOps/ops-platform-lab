@@ -75,6 +75,7 @@ services:
     image: prom/prometheus
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
     ports:
       - "9090:9090"
     restart: unless-stopped
@@ -83,6 +84,8 @@ services:
     image: grafana/grafana
     ports:
       - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
     restart: unless-stopped
 
   node-exporter:
@@ -110,3 +113,5 @@ services:
 volumes:
   pgdata:
   miniodata:
+  grafana-data:
+  promdata:
