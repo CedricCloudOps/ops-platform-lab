@@ -1,5 +1,7 @@
 # ops-platform-lab — Document Vault
 
+![CI](https://github.com/CedricCloudOps/ops-platform-lab/actions/workflows/ci.yml/badge.svg)
+
 A hands-on lab to **deploy and operate** a small *Document Vault* service with a
 full production-style operations stack, on a single cloud VM (Vultr / GCP).
 Built to practice and prove the skills of a **System & Software Operations Engineer**.
