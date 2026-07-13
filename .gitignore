@@ -2,6 +2,8 @@
 .env
 *.pem
 *.key
+*.crt
+nginx/certs/
 
 # Python
 __pycache__/
