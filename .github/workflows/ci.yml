@@ -15,5 +15,14 @@ jobs:
       - name: Build application image
         run: docker build -t vault-app ./app
 
+      - name: Scan image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: vault-app
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '0'   # report only (set to '1' to fail the build on HIGH/CRITICAL)
+
       - name: Validate Docker Compose file
         run: docker compose config --quiet
