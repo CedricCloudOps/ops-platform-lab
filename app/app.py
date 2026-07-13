@@ -5,12 +5,30 @@ import redis
 from minio import Minio
 from kafka import KafkaProducer
 
-DATABASE_URL   = os.environ.get("DATABASE_URL", "postgresql://vault:vaultpass@postgres:5432/vault")
+def read_secret(name, default=""):
+    """Read a secret from <NAME>_FILE (Docker secret) if present, else the
+    <NAME> env var, else a default. Keeps passwords out of environment vars."""
+    path = os.environ.get(name + "_FILE")
+    if path:
+        try:
+            with open(path) as fh:
+                return fh.read().strip()
+        except OSError:
+            pass
+    return os.environ.get(name, default)
+
 REDIS_HOST     = os.environ.get("REDIS_HOST", "redis")
 MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "minio:9000")
 MINIO_USER     = os.environ.get("MINIO_USER", "admin")
-MINIO_PASSWORD = os.environ.get("MINIO_PASSWORD", "admin12345")
+MINIO_PASSWORD = read_secret("MINIO_PASSWORD", "admin12345")
 KAFKA_BROKER   = os.environ.get("KAFKA_BROKER", "kafka:9092")
+
+PG_USER        = os.environ.get("POSTGRES_USER", "vault")
+PG_HOST        = os.environ.get("POSTGRES_HOST", "postgres")
+PG_DB          = os.environ.get("POSTGRES_DB", "vault")
+PG_PASSWORD    = read_secret("POSTGRES_PASSWORD", "vaultpass")
+DATABASE_URL   = os.environ.get("DATABASE_URL") or \
+    "postgresql://%s:%s@%s:5432/%s" % (PG_USER, PG_PASSWORD, PG_HOST, PG_DB)
 BUCKET         = "documents"
 
 app = Flask(__name__)

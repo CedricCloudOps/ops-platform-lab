@@ -4,6 +4,7 @@
 *.key
 *.crt
 nginx/certs/
+secrets/*.txt
 
 # Python
 __pycache__/

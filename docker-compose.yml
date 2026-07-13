@@ -4,7 +4,9 @@ services:
     environment:
       POSTGRES_DB: vault
       POSTGRES_USER: vault
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultpass}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -18,7 +20,9 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_USER:-admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-admin12345}
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_password
+    secrets:
+      - minio_password
     volumes:
       - miniodata:/data
     ports:
@@ -44,12 +48,18 @@ services:
   app:
     build: ./app
     environment:
-      DATABASE_URL: postgresql://vault:${POSTGRES_PASSWORD:-vaultpass}@postgres:5432/vault
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: vault
+      POSTGRES_DB: vault
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       REDIS_HOST: redis
       MINIO_ENDPOINT: minio:9000
       MINIO_USER: ${MINIO_USER:-admin}
-      MINIO_PASSWORD: ${MINIO_PASSWORD:-admin12345}
+      MINIO_PASSWORD_FILE: /run/secrets/minio_password
       KAFKA_BROKER: kafka:9092
+    secrets:
+      - postgres_password
+      - minio_password
     depends_on: [postgres, redis, minio, kafka]
     restart: unless-stopped
 
@@ -119,3 +129,9 @@ volumes:
   miniodata:
   grafana-data:
   promdata:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  minio_password:
+    file: ./secrets/minio_password.txt
