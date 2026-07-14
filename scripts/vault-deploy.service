@@ -1,0 +1,11 @@
+[Unit]
+Description=Document Vault pull-based deploy
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=cedric
+SupplementaryGroups=docker
+WorkingDirectory=/home/cedric/ops-platform-lab
+ExecStart=/home/cedric/ops-platform-lab/scripts/deploy.sh
