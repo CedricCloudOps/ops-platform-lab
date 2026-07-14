@@ -144,6 +144,24 @@ services:
       - /dev/disk/:/dev/disk:ro
     restart: unless-stopped
 
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    environment:
+      DATA_SOURCE_URI: "postgres:5432/vault?sslmode=disable"
+      DATA_SOURCE_USER: vault
+      DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    depends_on: [postgres]
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on: [redis]
+    restart: unless-stopped
+
 volumes:
   pgdata:
   miniodata:
