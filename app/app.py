@@ -1,5 +1,5 @@
 import os, io, json, time
-from flask import Flask, request, redirect, render_template_string
+from flask import Flask, request, redirect, render_template_string, Response, abort
 import psycopg2
 import redis
 from minio import Minio
@@ -114,8 +114,11 @@ ul.docs li:last-child{border-bottom:0}
 .ext-xls,.ext-xlsx,.ext-csv{background:rgba(47,158,68,.16);color:#2f9e44}
 .ext-zip,.ext-rar{background:rgba(214,158,46,.16);color:#d69e2e}
 .doc-info{min-width:0;flex:1}
-.doc-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-name{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);text-decoration:none}
+a.doc-name:hover{color:var(--accent);text-decoration:underline}
 .doc-date{color:var(--muted);font-size:.82rem}
+.dl{flex:none;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;color:var(--muted);border:1px solid var(--border);text-decoration:none}
+.dl:hover{color:var(--accent);border-color:var(--accent)}
 .empty{color:var(--muted);text-align:center;padding:28px 0}
 .footer{color:var(--muted);font-size:.8rem;text-align:center;margin-top:8px}
 @media(max-width:560px){.stats{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.btn{flex:1;justify-content:center}}
@@ -165,9 +168,12 @@ ul.docs li:last-child{border-bottom:0}
       <li>
         <span class="ext ext-{{ ext or 'file' }}">{{ (ext or 'FILE')|upper }}</span>
         <div class="doc-info">
-          <div class="doc-name">{{ d[1] }}</div>
+          <a class="doc-name" href="/download/{{ d[1]|urlencode }}">{{ d[1] }}</a>
           <div class="doc-date">{{ d[2].strftime('%d/%m/%Y · %H:%M') if d[2] else '' }}</div>
         </div>
+        <a class="dl" href="/download/{{ d[1]|urlencode }}" title="Télécharger">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        </a>
       </li>
       {% endfor %}
     </ul>
@@ -213,6 +219,20 @@ def upload():
     except Exception as e:
         print("kafka producer error:", e)
     return redirect("/")
+
+@app.route("/download/<path:name>")
+def download(name):
+    try:
+        obj = minio_client().get_object(BUCKET, name)
+        data = obj.read()
+        obj.close(); obj.release_conn()
+    except Exception:
+        abort(404)
+    safe = "".join(c for c in name if c not in '"\r\n')
+    return Response(data, headers={
+        "Content-Disposition": 'attachment; filename="%s"' % safe,
+        "Content-Type": "application/octet-stream",
+    })
 
 @app.route("/health")
 def health():
