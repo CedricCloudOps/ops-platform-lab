@@ -68,7 +68,22 @@ services:
     command: python worker.py
     environment:
       KAFKA_BROKER: kafka:9092
-    depends_on: [kafka]
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: vault
+      POSTGRES_DB: vault
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      MINIO_ENDPOINT: minio:9000
+      MINIO_USER: ${MINIO_USER:-admin}
+      MINIO_PASSWORD_FILE: /run/secrets/minio_password
+      CLAMAV_HOST: clamav
+    secrets:
+      - postgres_password
+      - minio_password
+    depends_on: [kafka, minio, postgres, clamav]
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:latest
     restart: unless-stopped
 
   nginx:

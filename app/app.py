@@ -46,7 +46,9 @@ def init():
         try:
             conn = db(); cur = conn.cursor()
             cur.execute("CREATE TABLE IF NOT EXISTS documents ("
-                        "id SERIAL PRIMARY KEY, name TEXT, created_at TIMESTAMP DEFAULT now())")
+                        "id SERIAL PRIMARY KEY, name TEXT, created_at TIMESTAMP DEFAULT now(), "
+                        "scan_status TEXT DEFAULT 'pending')")
+            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS scan_status TEXT DEFAULT 'pending'")
             conn.commit(); cur.close(); conn.close()
             break
         except Exception as e:
@@ -119,6 +121,11 @@ a.doc-name:hover{color:var(--accent);text-decoration:underline}
 .doc-date{color:var(--muted);font-size:.82rem}
 .dl{flex:none;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;color:var(--muted);border:1px solid var(--border);text-decoration:none}
 .dl:hover{color:var(--accent);border-color:var(--accent)}
+.status{flex:none;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.status-clean{background:rgba(30,142,90,.16);color:#1e8e5a}
+.status-infected{background:rgba(224,49,49,.16);color:#e03131}
+.status-pending{background:rgba(107,114,128,.16);color:#6b7280}
+.status-error{background:rgba(214,158,46,.16);color:#d69e2e}
 .empty{color:var(--muted);text-align:center;padding:28px 0}
 .footer{color:var(--muted);font-size:.8rem;text-align:center;margin-top:8px}
 @media(max-width:560px){.stats{grid-template-columns:1fr}.hero h1{font-size:1.6rem}.btn{flex:1;justify-content:center}}
@@ -165,12 +172,14 @@ a.doc-name:hover{color:var(--accent);text-decoration:underline}
     <ul class="docs">
       {% for d in docs %}
       {% set ext = (d[1].rsplit('.',1)[1]|lower) if '.' in d[1] else '' %}
+      {% set st = d[3] or 'pending' %}
       <li>
         <span class="ext ext-{{ ext or 'file' }}">{{ (ext or 'FILE')|upper }}</span>
         <div class="doc-info">
           <a class="doc-name" href="/download/{{ d[1]|urlencode }}">{{ d[1] }}</a>
           <div class="doc-date">{{ d[2].strftime('%d/%m/%Y · %H:%M') if d[2] else '' }}</div>
         </div>
+        <span class="status status-{{ st }}">{{ {'clean':'sain','infected':'infecté','pending':'scan…','error':'erreur'}.get(st, st) }}</span>
         <a class="dl" href="/download/{{ d[1]|urlencode }}" title="Télécharger">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
         </a>
@@ -190,7 +199,7 @@ a.doc-name:hover{color:var(--accent);text-decoration:underline}
 @app.route("/")
 def index():
     conn = db(); cur = conn.cursor()
-    cur.execute("SELECT id, name, created_at FROM documents ORDER BY id DESC LIMIT 20")
+    cur.execute("SELECT id, name, created_at, scan_status FROM documents ORDER BY id DESC LIMIT 20")
     docs = cur.fetchall()
     cur.execute("SELECT COUNT(*) FROM documents")
     total = cur.fetchone()[0]
@@ -206,7 +215,8 @@ def upload():
     minio_client().put_object(BUCKET, f.filename, io.BytesIO(data), length=len(data))
     # 2) store metadata in PostgreSQL
     conn = db(); cur = conn.cursor()
-    cur.execute("INSERT INTO documents(name) VALUES (%s)", (f.filename,))
+    cur.execute("INSERT INTO documents(name) VALUES (%s) RETURNING id", (f.filename,))
+    doc_id = cur.fetchone()[0]
     conn.commit(); cur.close(); conn.close()
     # 3) increment the counter in Redis
     r.incr("uploads")
@@ -214,7 +224,7 @@ def upload():
     try:
         p = KafkaProducer(bootstrap_servers=KAFKA_BROKER,
                           value_serializer=lambda v: json.dumps(v).encode())
-        p.send("document-events", {"event": "upload", "name": f.filename})
+        p.send("document-events", {"event": "upload", "name": f.filename, "id": doc_id})
         p.flush()
     except Exception as e:
         print("kafka producer error:", e)
