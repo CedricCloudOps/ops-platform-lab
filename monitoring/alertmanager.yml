@@ -1,0 +1,11 @@
+# Basic routing. In production, add a real receiver (email, Slack, PagerDuty...).
+# Here alerts group into a no-op receiver and are visible in the Alertmanager UI (:9093).
+route:
+  receiver: default
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+
+receivers:
+  - name: default
