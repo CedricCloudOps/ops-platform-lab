@@ -65,6 +65,10 @@ All dashboards are **provisioned as code** (data source + dashboards auto-loaded
 
 ![Grafana Prometheus dashboard](docs/screenshots/prometheus.png)
 
+**Grafana — PostgreSQL (custom dashboard, built as code)**
+
+![Grafana PostgreSQL dashboard](docs/screenshots/postgres.png)
+
 **Kubernetes — pods (k3s)**
 
 ![Kubernetes pods](docs/screenshots/kubernetes.png)
@@ -87,6 +91,10 @@ All dashboards are **provisioned as code** (data source + dashboards auto-loaded
 **Prometheus — query engine**
 
 ![Prometheus query engine](docs/screenshots/prometheus-engine.png)
+
+**Redis — exporter dashboard**
+
+![Redis dashboard](docs/screenshots/redis.png)
 
 </details>
 
