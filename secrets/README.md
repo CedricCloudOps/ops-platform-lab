@@ -14,8 +14,15 @@ printf '%s' "your-minio-password"    > secrets/minio_password.txt   # min. 8 cha
 
 | File | Used by | Env convention |
 |------|---------|----------------|
-| `postgres_password.txt` | postgres, app | `POSTGRES_PASSWORD_FILE` |
-| `minio_password.txt` | minio, app | `MINIO_ROOT_PASSWORD_FILE` / `MINIO_PASSWORD_FILE` |
+| `postgres_password.txt` | postgres, app, worker | `POSTGRES_PASSWORD_FILE` |
+| `minio_password.txt` | minio, app, worker | `MINIO_ROOT_PASSWORD_FILE` / `MINIO_PASSWORD_FILE` |
+| `admin_password.txt` | app (login) | `ADMIN_PASSWORD_FILE` |
+| `secret_key.txt` | app (Flask session signing) | `SECRET_KEY_FILE` |
+
+```bash
+printf '%s' "your-admin-login-password" > secrets/admin_password.txt
+openssl rand -hex 32                     > secrets/secret_key.txt
+```
 
 > If PostgreSQL was already initialised, keep the **same** password it was
 > created with (PostgreSQL sets the password only on first init).

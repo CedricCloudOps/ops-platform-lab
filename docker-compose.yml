@@ -57,9 +57,14 @@ services:
       MINIO_USER: ${MINIO_USER:-admin}
       MINIO_PASSWORD_FILE: /run/secrets/minio_password
       KAFKA_BROKER: kafka:9092
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      SECRET_KEY_FILE: /run/secrets/secret_key
     secrets:
       - postgres_password
       - minio_password
+      - admin_password
+      - secret_key
     depends_on: [postgres, redis, minio, kafka]
     restart: unless-stopped
 
@@ -150,3 +155,7 @@ secrets:
     file: ./secrets/postgres_password.txt
   minio_password:
     file: ./secrets/minio_password.txt
+  admin_password:
+    file: ./secrets/admin_password.txt
+  secret_key:
+    file: ./secrets/secret_key.txt

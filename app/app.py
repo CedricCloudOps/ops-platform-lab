@@ -1,5 +1,6 @@
-import os, io, json, time
-from flask import Flask, request, redirect, render_template_string, Response, abort
+import os, io, json, time, hmac
+from functools import wraps
+from flask import Flask, request, redirect, render_template_string, Response, abort, session
 import psycopg2
 import redis
 from minio import Minio
@@ -31,8 +32,21 @@ DATABASE_URL   = os.environ.get("DATABASE_URL") or \
     "postgresql://%s:%s@%s:5432/%s" % (PG_USER, PG_PASSWORD, PG_HOST, PG_DB)
 BUCKET         = "documents"
 
+SECRET_KEY     = read_secret("SECRET_KEY", "dev-insecure-change-me")
+ADMIN_USER     = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASSWORD = read_secret("ADMIN_PASSWORD", "admin")
+
 app = Flask(__name__)
+app.secret_key = SECRET_KEY
 r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
+
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("user"):
+            return redirect("/login")
+        return f(*args, **kwargs)
+    return wrapper
 
 def db():
     return psycopg2.connect(DATABASE_URL)
@@ -82,8 +96,10 @@ html,body{margin:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
 .wrap{max-width:840px;margin:0 auto;padding:28px 18px 64px}
-.hero{border-radius:18px;padding:30px;color:#fff;
+.hero{position:relative;border-radius:18px;padding:30px;color:#fff;
   background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:var(--shadow)}
+.logout{position:absolute;top:16px;right:18px;color:#fff;opacity:.9;font-size:.78rem;text-decoration:none;border:1px solid rgba(255,255,255,.35);padding:5px 12px;border-radius:8px}
+.logout:hover{background:rgba(255,255,255,.14)}
 .hero h1{margin:0 0 .3rem;font-size:1.9rem;letter-spacing:-.02em;display:flex;align-items:center;gap:12px}
 .hero p{margin:0;opacity:.9;font-size:.95rem}
 .hero .chips{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
@@ -134,6 +150,7 @@ a.doc-name:hover{color:var(--accent);text-decoration:underline}
 <body>
 <div class="wrap">
   <header class="hero">
+    <a class="logout" href="/logout">Déconnexion</a>
     <h1>
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M12 6v3M12 15v3M18 12h-3M9 12H6"/></svg>
       Document Vault
@@ -196,7 +213,67 @@ a.doc-name:hover{color:var(--accent);text-decoration:underline}
 </body>
 </html>"""
 
+LOGIN_PAGE = """<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion — Document Vault</title>
+<style>
+:root{--bg:#eef1f8;--card:#fff;--text:#141a29;--muted:#6b7280;--border:#e5e8f0;
+  --accent:#4f46e5;--accent2:#7c3aed;--ring:rgba(79,70,229,.35);
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 12px 34px rgba(16,24,40,.12)}
+@media (prefers-color-scheme:dark){:root{--bg:#0d111c;--card:#161c2b;--text:#e8ebf3;--muted:#95a0b8;
+  --border:#242c3e;--shadow:0 1px 2px rgba(0,0,0,.4),0 14px 34px rgba(0,0,0,.45)}}
+*{box-sizing:border-box}html,body{margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.box{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:32px 30px}
+.logo{display:flex;align-items:center;gap:11px;font-size:1.3rem;font-weight:700;margin-bottom:6px}
+.logo .ic{flex:none;width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.sub{color:var(--muted);font-size:.88rem;margin-bottom:20px}
+label{display:block;font-size:.82rem;font-weight:600;margin:14px 0 6px}
+input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:.95rem}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.btn{width:100%;margin-top:20px;border:0;cursor:pointer;font-weight:600;padding:12px;border-radius:10px;
+  color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:.95rem}
+.btn:hover{filter:brightness(1.06)}
+.err{margin-top:14px;background:rgba(224,49,49,.12);color:#e03131;font-size:.85rem;padding:9px 12px;border-radius:9px}
+</style>
+</head>
+<body>
+<form class="box" method="post" action="/login">
+  <div class="logo"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Document Vault</div>
+  <div class="sub">Connecte-toi pour accéder au coffre.</div>
+  <label>Utilisateur</label>
+  <input name="username" autofocus required>
+  <label>Mot de passe</label>
+  <input name="password" type="password" required>
+  <button class="btn" type="submit">Se connecter</button>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+</form>
+</body>
+</html>"""
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = ""
+    if request.method == "POST":
+        u = request.form.get("username", "")
+        p = request.form.get("password", "")
+        if u == ADMIN_USER and hmac.compare_digest(p, ADMIN_PASSWORD):
+            session["user"] = u
+            return redirect("/")
+        error = "Identifiants invalides."
+    return render_template_string(LOGIN_PAGE, error=error)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
 @app.route("/")
+@login_required
 def index():
     conn = db(); cur = conn.cursor()
     cur.execute("SELECT id, name, created_at, scan_status FROM documents ORDER BY id DESC LIMIT 20")
@@ -205,9 +282,10 @@ def index():
     total = cur.fetchone()[0]
     cur.close(); conn.close()
     count = r.get("uploads") or 0
-    return render_template_string(PAGE, docs=docs, count=count, total=total)
+    return render_template_string(PAGE, docs=docs, count=count, total=total, user=session.get("user"))
 
 @app.route("/upload", methods=["POST"])
+@login_required
 def upload():
     f = request.files["file"]
     data = f.read()
@@ -231,6 +309,7 @@ def upload():
     return redirect("/")
 
 @app.route("/download/<path:name>")
+@login_required
 def download(name):
     try:
         obj = minio_client().get_object(BUCKET, name)
