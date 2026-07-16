@@ -53,6 +53,60 @@ sudo k3s kubectl set image deploy/vault-app app=vault-app:v2   # rolling update
 sudo k3s kubectl rollout undo deploy/vault-app             # rollback
 ```
 
+## TLS / HTTPS
+
+Unlike the Compose stack (where Nginx read the certificate from a mounted file),
+Kubernetes stores the certificate in a **Secret of type `kubernetes.io/tls`**, and
+the **Ingress Controller** terminates TLS with it.
+
+```bash
+# Lab: reuse the self-signed certificate generated for Nginx
+sudo k3s kubectl create secret tls vault-tls \
+  --cert=nginx/certs/vault.crt --key=nginx/certs/vault.key
+```
+
+Then point `vault.local` at the node IP in your client's hosts file and browse
+`https://vault.local/`. The raw node IP keeps working over plain HTTP (catch-all
+rule).
+
+**In production you never do this by hand.** Install **cert-manager** and annotate
+the Ingress:
+
+```yaml
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+```
+
+cert-manager then obtains the Let's Encrypt certificate, creates the Secret, and
+**renews it automatically** before expiry.
+
+## Monitoring
+
+These manifests deliberately contain **no Prometheus/Grafana**: on Kubernetes you
+do not hand-write them. Install the **kube-prometheus-stack** — it ships Prometheus,
+Grafana, Alertmanager, node-exporter, kube-state-metrics and dozens of ready-made
+dashboards in one command:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install monitoring prometheus-community/kube-prometheus-stack \
+  -n monitoring --create-namespace
+```
+
+How pods are monitored — and how it differs from the Compose stack:
+
+| Docker Compose | Kubernetes |
+|----------------|------------|
+| cAdvisor runs as its own container | **Built into the kubelet** (`/metrics/cadvisor`) — nothing to deploy |
+| node-exporter is a service | A **DaemonSet** — one pod per node, automatically |
+| Static targets in `prometheus.yml` | **Service discovery**: Prometheus finds pods/services through the Kubernetes API |
+| — | **kube-state-metrics**: state of Kubernetes objects (desired vs ready pods, restarts...) |
+| — | **metrics-server**: lightweight, powers `kubectl top` and the **HPA** only (no history) |
+
+With the Prometheus Operator you declare a **`ServiceMonitor`** ("scrape pods with
+this label") and Prometheus reconfigures itself — no more editing `prometheus.yml`.
+
 ## Notes
 
 - **Images**: Kubernetes never builds images — it pulls them. On a single-node lab
@@ -64,6 +118,8 @@ sudo k3s kubectl rollout undo deploy/vault-app             # rollback
 - **Stateful services**: PostgreSQL and MinIO use PersistentVolumeClaims (k3s
   provides a local-path provisioner). In production these are usually **managed
   services** outside the cluster.
+- **MinIO**: its root password must be **at least 8 characters**, otherwise the pod
+  crashes at startup.
 
 ## Clean up
 
