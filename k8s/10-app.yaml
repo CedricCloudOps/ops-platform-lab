@@ -1,0 +1,158 @@
+# Document Vault application + background worker.
+#
+# The image is built locally and imported into the k3s runtime (single-node lab):
+#   docker build -t vault-app:v1 ./app
+#   docker save vault-app:v1 | sudo k3s ctr images import -
+# On a real cluster you would push it to a registry instead and drop imagePullPolicy.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vault-app
+  template:
+    metadata:
+      labels:
+        app: vault-app
+    spec:
+      containers:
+        - name: app
+          image: vault-app:v1
+          imagePullPolicy: IfNotPresent
+          command: ["python", "app.py"]
+          ports:
+            - containerPort: 5000
+          env:
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_USER
+              value: vault
+            - name: POSTGRES_DB
+              value: vault
+            - name: REDIS_HOST
+              value: redis
+            - name: MINIO_ENDPOINT
+              value: minio:9000
+            - name: MINIO_USER
+              value: admin
+            - name: KAFKA_BROKER
+              value: kafka:9092
+            - name: ADMIN_USER
+              value: admin
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secrets
+                  key: postgres-password
+            - name: MINIO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secrets
+                  key: minio-password
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secrets
+                  key: admin-password
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secrets
+                  key: secret-key
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }   # required for the HPA
+            limits: { cpu: 500m, memory: 256Mi }
+          readinessProbe:                            # ready to receive traffic?
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:                             # still alive? restart if not
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-app
+spec:
+  selector:
+    app: vault-app
+  ports:
+    - port: 80
+      targetPort: 5000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vault-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vault-app
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault-worker
+  template:
+    metadata:
+      labels:
+        app: vault-worker
+    spec:
+      containers:
+        - name: worker
+          image: vault-app:v1          # same image, different command
+          imagePullPolicy: IfNotPresent
+          command: ["python", "worker.py"]
+          env:
+            - name: KAFKA_BROKER
+              value: kafka:9092
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_USER
+              value: vault
+            - name: POSTGRES_DB
+              value: vault
+            - name: MINIO_ENDPOINT
+              value: minio:9000
+            - name: MINIO_USER
+              value: admin
+            - name: CLAMAV_HOST
+              value: clamav
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secrets
+                  key: postgres-password
+            - name: MINIO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secrets
+                  key: minio-password
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }

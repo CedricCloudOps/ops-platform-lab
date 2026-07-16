@@ -1,0 +1,18 @@
+# Ingress = routing RULES only. It does nothing without an Ingress Controller
+# running in the cluster (k3s ships Traefik by default; ingress-nginx is the other
+# common choice). This replaces the Nginx reverse proxy of the Compose stack.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-app
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vault-app
+                port:
+                  number: 80
