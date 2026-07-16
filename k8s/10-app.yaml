@@ -19,6 +19,10 @@ spec:
       labels:
         app: vault-app
     spec:
+      # Kubernetes injects legacy Docker-link env vars for every Service
+      # (e.g. CLAMAV_PORT=tcp://10.43.x.x:3310), which collide with our own
+      # config variables. Disable that legacy behaviour.
+      enableServiceLinks: false
       containers:
         - name: app
           image: vault-app:v1
@@ -123,12 +127,17 @@ spec:
       labels:
         app: vault-worker
     spec:
+      # Same reason as above: CLAMAV_PORT would otherwise be overwritten by
+      # Kubernetes with "tcp://<ip>:3310" and int() would fail.
+      enableServiceLinks: false
       containers:
         - name: worker
           image: vault-app:v1          # same image, different command
           imagePullPolicy: IfNotPresent
           command: ["python", "worker.py"]
           env:
+            - name: CLAMAV_PORT
+              value: "3310"
             - name: KAFKA_BROKER
               value: kafka:9092
             - name: POSTGRES_HOST
