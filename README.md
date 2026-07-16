@@ -153,5 +153,6 @@ kubectl rollout undo deployment/web           # rollback
 - **CD** — pull-based **GitOps**: a systemd timer (`scripts/vault-deploy.timer`) reconciles the host with `origin/main` every 2 minutes.
 - **IaC** — `terraform/` provisions the cloud VM (EC2 + security group + Docker bootstrap); `ansible/playbook.yml` installs Docker idempotently.
 
-## Full deployment guide
-See **[docs/GUIDE.md](docs/GUIDE.md)** — step by step, from server hardening to Kubernetes.
+## Documentation
+- **[docs/GUIDE.md](docs/GUIDE.md)** — full deployment guide, step by step, from server hardening to Kubernetes.
+- **[docs/docker-compose-vs-kubernetes.md](docs/docker-compose-vs-kubernetes.md)** — why Compose and Kubernetes must not run together, and how to fix the port 80 / iptables conflict.

@@ -1,76 +1,80 @@
-# Docker Compose vs Kubernetes — they don't run together
+# Docker Compose vs Kubernetes — they are NOT meant to run together
 
-## Key point
+## Common misconception
 
-Docker Compose and Kubernetes are **two separate orchestrators**. Kubernetes does
-**not** reuse the containers started by Docker Compose — it runs its **own**
-containers through its own runtime (containerd). They share the same technology
-(containers / OCI images) but **not the containers themselves**.
+> "Docker Compose launches the containers, and Kubernetes then uses those
+> containers to do autoscaling, replication, etc."
 
-- **Docker Compose** — defines and runs several containers on **one host**.
-- **Kubernetes** — orchestrates its **own** workloads (pods) across a **cluster**.
+**This is wrong.** Docker Compose and Kubernetes are **two independent
+orchestrators**. Kubernetes does **not** reuse Compose containers — it runs its
+own containers (as *pods*) through its own runtime (**containerd**). You pick
+**one** platform for a given application.
 
-You pick **one** per application, not both.
+| | Docker Compose | Kubernetes |
+|---|---|---|
+| Scope | one host | a cluster of nodes |
+| Runs containers via | the Docker engine | its own runtime (containerd) |
+| Good for | small / dev / single server | scale, high availability |
+| Autoscaling / self-healing | no | yes |
 
-> This lab runs both (the Docker Compose stack **and** k3s) on the same VM **only
-> to practise**. That is not a production architecture.
+They both *run containers*, but each has its **own** engine. Running both for the
+same app is only ever a **learning setup**, never production.
 
-## The conflict: port 80 / 443
+## Why they conflict in this lab
 
-Both want the web ports:
+On a single machine, both fight for **port 80**:
 
-- Docker Compose stack → **Nginx** (reverse proxy) on 80/443
-- k3s → **Traefik** (its default ingress) on 80/443
+- the Docker stack serves it with **Nginx**
+- **k3s** serves it with **Traefik** (its default ingress controller)
 
-If both run, they fight for the port. Worse, `systemctl stop k3s` does **not**
-remove the iptables rules k3s installed, so k3s keeps hijacking the node's
-**external IP** even when it looks stopped.
+And `sudo systemctl stop k3s` does **not** remove the iptables rules k3s installed,
+so k3s keeps hijacking the external IP even when the service looks stopped.
+
+```mermaid
+flowchart LR
+    U["User / browser"] --> P{"Port 80 on the VM"}
+    P -->|Docker stack| N["Nginx reverse proxy"]
+    P -->|k3s| T["Traefik ingress"]
+    N --> A["Flask app - works"]
+    T --> X["404 page not found"]
+```
 
 ## Symptom
 
-- `curl https://localhost/` → works (Nginx replies `302 -> /login`)
-- Browser on the **external IP** → `404 page not found` (plain text, ~19 bytes)
+- `curl https://localhost/` works — Nginx answers (HTTP 302 -> /login)
+- but the browser on the **external IP** shows **`404 page not found`**
+  (that plain-text 404 is Traefik's signature, not Nginx)
 
-That `404 page not found` is the signature of **Traefik / Go**, not Nginx — it
-means k3s is still intercepting the external IP.
-
-## Fix (runbook)
+## Fix — fully remove k3s interference
 
 ```bash
-# 1. Fully stop k3s AND flush its iptables rules + leftover containers
+# 1. Kill all k3s containers AND flush its iptables rules
 sudo /usr/local/bin/k3s-killall.sh
 
-# 2. Docker re-installs its own iptables rules (k3s-killall flushed them)
+# 2. Let Docker reinstall its own network rules
 sudo systemctl restart docker
 
-# 3. Bring the stack back up
+# 3. Bring the Docker stack back up
 docker compose up -d
 
-# 4. Verify — the external IP is now served by Nginx
-curl -kI https://<VM_IP>/          # expect: 302 + "Server: nginx"
+# 4. Verify (expect HTTP 302 + "Server: nginx")
+curl -kI https://<VM_IP>/
 ```
 
-## How to avoid it
+## How to avoid it for good
 
-1. **Discipline** — run one orchestrator at a time. When done with k3s, always
-   use `k3s-killall.sh` (not just `systemctl stop k3s`).
-2. **Disable Traefik in k3s** so it never claims port 80:
+1. **One owner of port 80 at a time.** When you are done with k3s, always run
+   `sudo /usr/local/bin/k3s-killall.sh` (not just `systemctl stop k3s`).
+
+2. **Disable Traefik in k3s** so it never touches port 80:
+
    ```bash
    sudo mkdir -p /etc/rancher/k3s
    printf 'disable:\n  - traefik\n' | sudo tee /etc/rancher/k3s/config.yaml
    sudo rm -f /var/lib/rancher/k3s/server/manifests/traefik.yaml
    ```
-   Then reach k8s services via NodePort (for example `:30080`).
-3. **Separate machines** — in production, Compose and Kubernetes live on
-   different hosts entirely.
 
-## Diagnostic reminder — "listening != receiving"
+   Then reach Kubernetes services through their **NodePort** (e.g. `:30080`).
 
-A service can look stopped while its **leftover iptables rules** still redirect
-traffic. Always check who actually answers:
-
-```bash
-curl -I http://<VM_IP>/            # who responds? (Server header, body size)
-sudo ss -tlnp 'sport = :80'        # who listens on port 80
-systemctl is-active k3s            # is k3s running?
-```
+3. **In production, separate them entirely** — Docker Compose and Kubernetes never
+   share a machine. Compose runs on its own VM; Kubernetes is a multi-node cluster.

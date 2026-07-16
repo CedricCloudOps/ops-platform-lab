@@ -122,6 +122,13 @@ off-site, and terminate TLS at Nginx (Let's Encrypt in production).
 
 ## 7. Kubernetes (k3s)
 
+> **Important — do not run k3s and the Docker Compose stack at the same time.**
+> They are two independent orchestrators and both fight for port 80 (Nginx vs
+> Traefik). Stopping k3s does **not** remove its iptables rules, so it keeps
+> hijacking the external IP. See
+> **[Docker Compose vs Kubernetes](docker-compose-vs-kubernetes.md)** for the
+> full explanation and the troubleshooting commands.
+
 ```bash
 curl -sfL https://get.k3s.io | sh -
 sudo k3s kubectl get nodes
