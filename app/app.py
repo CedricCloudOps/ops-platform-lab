@@ -244,7 +244,7 @@ input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--r
 <body>
 <form class="box" method="post" action="/login">
   <div class="logo"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Document Vault</div>
-  <div class="sub">Connecte-toi pour accéder au coffre.</div>
+  <div class="sub">Connecte-toi pour accéder au coffre sécurisé.</div>
   <label>Utilisateur</label>
   <input name="username" autofocus required>
   <label>Mot de passe</label>
