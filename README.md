@@ -120,6 +120,24 @@ All dashboards are **provisioned as code** (data source + dashboards auto-loaded
 
 </details>
 
+## Prerequisites
+
+| Requirement | Details |
+|-------------|---------|
+| OS | A Linux host — tested on **Ubuntu 24.04 LTS** |
+| CPU / RAM | 2 vCPU and **4 GB RAM** minimum; **8 GB recommended** (Kafka, ClamAV and the monitoring stack are memory-hungry) |
+| Disk | **20 GB** free — ClamAV signatures, container images and Prometheus data grow over time |
+| Software | **Docker Engine 24+** and the **Docker Compose v2** plugin (`docker compose version`), **git**, **openssl** |
+| Access | SSH access with a `sudo`-capable user |
+| Ports | `80` and `443` (Nginx), `3000` (Grafana), `9090` (Prometheus), `9093` (Alertmanager), `9001` (MinIO console) free on the host |
+
+> ⚠️ **Do not run Kubernetes (k3s) and Docker Compose on the same host** — k3s installs
+> iptables rules that hijack port 80 even when the service is stopped. See
+> [docs/docker-compose-vs-kubernetes.md](docs/docker-compose-vs-kubernetes.md).
+
+For the Kubernetes deployment, see [k8s/README.md](k8s/README.md); for a full
+step-by-step install (server hardening included), see [docs/GUIDE.md](docs/GUIDE.md).
+
 ## Quickstart (Docker Compose)
 ```bash
 cp .env.example .env                          # non-secret config (MINIO_USER)
