@@ -97,6 +97,29 @@ docker compose exec postgres psql -U vault -d vault -c \
 docker compose up -d <service>
 ```
 
+### Verifying the antivirus pipeline
+
+The **EICAR test string** is the industry-standard way to check that a scanner is
+live — it is not malware, but every antivirus flags it by design. It is
+deliberately **not committed** to this repository: shipping it would trigger
+antivirus alerts for anyone cloning the project. Generate it locally instead:
+
+```bash
+# Generate the EICAR test file (harmless, detected by every AV engine)
+printf '%s' 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > /tmp/eicar.com
+
+# Upload it through the app, then watch the worker scan it
+docker compose logs -f worker
+
+# The verdict is written back to PostgreSQL
+docker compose exec postgres psql -U vault -d vault -c \
+  "SELECT name, scan_status FROM documents ORDER BY id DESC LIMIT 5;"
+```
+
+Expected result: the document is stored, the worker consumes the Kafka event,
+ClamAV returns `FOUND`, and `scan_status` flips to **infected**. Upload any
+ordinary file to confirm the `clean` path. Delete `/tmp/eicar.com` afterwards.
+
 ---
 
 ## 7. Troubleshooting (known incidents)

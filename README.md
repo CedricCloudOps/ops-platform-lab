@@ -157,3 +157,7 @@ kubectl rollout undo deployment/web           # rollback
 - **[docs/GUIDE.md](docs/GUIDE.md)** — full deployment guide, step by step, from server hardening to Kubernetes.
 - **[docs/RUNBOOK.md](docs/RUNBOOK.md)** — day-to-day operations: start/stop, health checks, backup/restore, troubleshooting, incident response.
 - **[docs/docker-compose-vs-kubernetes.md](docs/docker-compose-vs-kubernetes.md)** — why Compose and Kubernetes must not run together, and how to fix the port 80 / iptables conflict.
+
+## License
+
+Released under the [MIT License](LICENSE).

@@ -16,6 +16,10 @@ venv/
 data/
 *.log
 
+# Antivirus test samples (never commit: they trigger AV alerts on clone)
+eicar.com
+eicar*.txt
+
 # Editors / OS
 .vscode/
 .idea/
