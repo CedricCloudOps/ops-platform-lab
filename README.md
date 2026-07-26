@@ -176,7 +176,7 @@ kubectl rollout undo deployment/web           # rollback
 ```
 
 ## Delivery (CI/CD & IaC)
-- **CI** — `.github/workflows/ci.yml`: builds the app image, **scans it with Trivy**, and validates the Compose file and the Terraform config on every push.
+- **CI** — `.github/workflows/ci.yml`: **runs the unit tests first**, then builds the app image, **scans it with Trivy**, and validates the Compose file and the Terraform config on every push. The image is only built if the tests pass (`needs: test`).
 - **CD** — pull-based **GitOps**: a systemd timer (`scripts/vault-deploy.timer`) reconciles the host with `origin/main` every 2 minutes.
 - **IaC** — `terraform/` provisions the cloud VM (EC2 + security group + Docker bootstrap); `ansible/playbook.yml` installs Docker idempotently.
 

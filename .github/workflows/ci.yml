@@ -6,7 +6,29 @@ on:
   pull_request:
 
 jobs:
+  # Tests run first: no point building or scanning an image that is already broken.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        working-directory: app
+        run: pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        working-directory: app
+        run: pytest tests/ -v
+
   build:
+    needs: test           # the image is only built if the tests pass
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

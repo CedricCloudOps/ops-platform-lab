@@ -1,0 +1,3 @@
+# Test-only dependencies (never shipped in the production image).
+-r requirements.txt
+pytest>=8.0
