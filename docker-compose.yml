@@ -87,6 +87,9 @@ services:
       MINIO_USER: ${MINIO_USER:-admin}
       MINIO_PASSWORD_FILE: /run/secrets/minio_password
       CLAMAV_HOST: clamav
+      METRICS_PORT: "9101"
+    expose:
+      - "9101"          # Prometheus scrapes worker:9101/metrics (internal only)
     secrets:
       - postgres_password
       - minio_password

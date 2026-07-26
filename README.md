@@ -13,6 +13,7 @@ the skills of a **System & Software Operations Engineer**.
 ## Highlights
 - **Event-driven antivirus** — each upload triggers a Kafka worker that scans the file with **ClamAV** and records the verdict.
 - **Full observability (3 pillars)** — metrics (**Prometheus**), logs (**Loki**), alerts (**Alertmanager**); Grafana dashboards provisioned as code.
+- **Application-level metrics (RED)** — the app and the antivirus worker expose their own `/metrics`: request rate, error rate and latency percentiles, plus business counters (uploads, clean/infected scans) on a dedicated Grafana dashboard.
 - **Secure by default** — HTTPS/TLS, session authentication, **Docker secrets** (no plaintext passwords), **Trivy** image scanning in CI.
 - **Orchestration** — Docker Compose *and* Kubernetes (k3s): scaling, self-healing, rolling updates, rollback.
 - **Infrastructure as Code** — **Terraform** (validated in CI) + Ansible.

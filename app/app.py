@@ -5,6 +5,7 @@ import psycopg2
 import redis
 from minio import Minio
 from kafka import KafkaProducer
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 def read_secret(name, default=""):
     """Read a secret from <NAME>_FILE (Docker secret) if present, else the
@@ -39,6 +40,35 @@ ADMIN_PASSWORD = read_secret("ADMIN_PASSWORD", "admin")
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
+
+# --- Prometheus metrics ---------------------------------------------------
+# RED method: Rate (how many requests), Errors (how many failed), Duration
+# (how long they take). Labelled by endpoint (the view name, low cardinality)
+# rather than the raw path, so /download/<file> stays a single series.
+HTTP_REQUESTS = Counter(
+    "vault_http_requests_total", "HTTP requests handled by the app",
+    ["method", "endpoint", "status"])
+HTTP_LATENCY = Histogram(
+    "vault_http_request_duration_seconds", "HTTP request duration (seconds)",
+    ["method", "endpoint"])
+# Business metrics: what the service actually does.
+UPLOADS = Counter("vault_uploads_total", "Documents uploaded")
+UPLOAD_BYTES = Counter("vault_upload_bytes_total", "Bytes uploaded")
+
+@app.before_request
+def _start_timer():
+    request._start_time = time.perf_counter()
+
+@app.after_request
+def _record_metrics(response):
+    endpoint = request.endpoint or "unknown"
+    if endpoint != "metrics":          # don't measure the scrape endpoint itself
+        HTTP_REQUESTS.labels(request.method, endpoint, response.status_code).inc()
+        start = getattr(request, "_start_time", None)
+        if start is not None:
+            HTTP_LATENCY.labels(request.method, endpoint).observe(
+                time.perf_counter() - start)
+    return response
 
 def login_required(f):
     @wraps(f)
@@ -298,6 +328,8 @@ def upload():
     conn.commit(); cur.close(); conn.close()
     # 3) increment the counter in Redis
     r.incr("uploads")
+    UPLOADS.inc()
+    UPLOAD_BYTES.inc(len(data))
     # 4) publish an event to Kafka
     try:
         p = KafkaProducer(bootstrap_servers=KAFKA_BROKER,
@@ -326,6 +358,12 @@ def download(name):
 @app.route("/health")
 def health():
     return {"status": "ok"}
+
+@app.route("/metrics")
+def metrics():
+    # Prometheus scrapes this endpoint (unauthenticated, like /health).
+    # Nginx blocks it from the outside; only the internal network reaches it.
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 if __name__ == "__main__":
     init()

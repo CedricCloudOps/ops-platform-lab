@@ -3,6 +3,7 @@ import psycopg2
 from minio import Minio
 from kafka import KafkaConsumer
 import clamd
+from prometheus_client import start_http_server, Counter, Histogram
 
 
 def read_secret(name, default=""):
@@ -31,6 +32,14 @@ PG_DB        = os.environ.get("POSTGRES_DB", "vault")
 PG_PASSWORD  = read_secret("POSTGRES_PASSWORD", "vaultpass")
 DATABASE_URL = os.environ.get("DATABASE_URL") or \
     "postgresql://%s:%s@%s:5432/%s" % (PG_USER, PG_PASSWORD, PG_HOST, PG_DB)
+
+METRICS_PORT = int(os.environ.get("METRICS_PORT", "9101"))
+
+# Prometheus metrics: the worker is not an HTTP server, so it exposes /metrics
+# on its own port via start_http_server(). Scraped by Prometheus over the
+# internal network.
+SCANS = Counter("vault_scans_total", "Files scanned by ClamAV", ["result"])
+SCAN_DURATION = Histogram("vault_scan_duration_seconds", "ClamAV scan duration (seconds)")
 
 
 def minio_client():
@@ -74,14 +83,18 @@ def handle(event):
     try:
         obj = minio_client().get_object(BUCKET, name)
         data = obj.read(); obj.close(); obj.release_conn()
-        status = scan_bytes(data)
+        with SCAN_DURATION.time():
+            status = scan_bytes(data)
     except Exception as e:
         print("scan error:", e, flush=True); status = "error"
+    SCANS.labels(status).inc()
     set_status(doc_id, name, status)
     print("Result:", name, "->", status, flush=True)
 
 
 def main():
+    start_http_server(METRICS_PORT)
+    print("Worker metrics exposed on :%d/metrics" % METRICS_PORT, flush=True)
     wait_for_clamav()
     for _ in range(40):
         try:

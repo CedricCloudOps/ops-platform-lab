@@ -59,7 +59,8 @@ docker compose restart nginx  # restart a single service
 docker compose ps                         # everything "Up" / "healthy"?
 curl -k -s -o /dev/null -w "%{http_code}\n" https://localhost/    # expect 302
 ```
-- **Grafana** → dashboards: host (Node Exporter), containers (Docker), PostgreSQL, Redis, Prometheus.
+- **Grafana** → dashboards: **Document Vault — Application (RED)** (request rate, errors, latency, uploads, scan results), host (Node Exporter), containers (Docker), PostgreSQL, Redis, Prometheus.
+- **App metrics** → the app exposes `/metrics` internally (blocked at Nginx from outside); the worker exposes `worker:9101/metrics`. Both are scraped by Prometheus (`/targets` → `vault-app`, `vault-worker`).
 - **Prometheus** → `/targets` (all UP) and `/alerts` (all green/inactive).
 - **Logs** → Grafana → Explore → Loki, e.g. `{container=~"ops-platform-lab-.*"} |= "error"`.
 
