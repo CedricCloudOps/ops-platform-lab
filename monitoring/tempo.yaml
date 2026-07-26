@@ -1,5 +1,10 @@
 # Grafana Tempo - single-binary trace backend with local storage.
 # Receives spans over OTLP (HTTP 4318 / gRPC 4317) from the app and the worker.
+#
+# Deliberately minimal: only server, distributor and storage. The ingester and
+# compactor tuning blocks were dropped because the config schema differs across
+# Tempo versions ("field ingester not found in type app.Config") and the
+# defaults are fine for a lab.
 server:
   http_listen_port: 3200
 
@@ -11,13 +16,6 @@ distributor:
           endpoint: 0.0.0.0:4318
         grpc:
           endpoint: 0.0.0.0:4317
-
-ingester:
-  max_block_duration: 5m        # cut blocks quickly so traces show up fast in a lab
-
-compactor:
-  compaction:
-    block_retention: 24h        # a lab does not need weeks of traces
 
 storage:
   trace:
