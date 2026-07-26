@@ -186,6 +186,9 @@ services:
       DATA_SOURCE_URI: "postgres:5432/vault?sslmode=disable"
       DATA_SOURCE_USER: vault
       DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres-exporter/queries.yaml
+    volumes:
+      - ./monitoring/postgres-queries.yaml:/etc/postgres-exporter/queries.yaml:ro
     secrets:
       - postgres_password
     depends_on: [postgres]

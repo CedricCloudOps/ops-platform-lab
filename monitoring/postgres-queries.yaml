@@ -1,0 +1,16 @@
+# Custom postgres_exporter queries.
+# Exposes the number of documents by scan status straight from PostgreSQL, so
+# the "clean / infected / total" counters are authoritative and persistent —
+# they reflect the database, not a worker counter that resets on restart.
+#
+# Produces: vault_documents_count{status="clean|infected|pending|error"} <gauge>
+vault_documents:
+  query: "SELECT COALESCE(scan_status, 'unknown') AS status, COUNT(*)::float AS count FROM documents GROUP BY scan_status"
+  master: true
+  metrics:
+    - status:
+        usage: "LABEL"
+        description: "Document scan status"
+    - count:
+        usage: "GAUGE"
+        description: "Number of documents in this scan status"
