@@ -86,6 +86,16 @@ counts by scan status read straight from PostgreSQL — an EICAR upload lights u
 
 ![Application dashboard — RED metrics and antivirus verdicts](docs/screenshots/vault-app.png)
 
+**Grafana Tempo — one upload traced across two services**
+
+The trace starts in `vault-app` (`POST /upload`) and continues in `vault-worker`
+(`scan document`) — a different process, seconds later, on the other side of Kafka:
+the trace context travels in the message headers. Tempo highlights the dominant
+node in red, and it is `clamav.scan` — the antivirus, not the storage or the
+database.
+
+![Distributed trace of an upload, from the app to the antivirus worker](docs/screenshots/tempo-nodegraph.png)
+
 **Grafana — host metrics (Node Exporter)**
 
 ![Grafana host dashboard](docs/screenshots/grafana.png)
