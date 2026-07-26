@@ -76,6 +76,14 @@ watch everything.
 
 All dashboards are **provisioned as code** (data source + dashboards auto-loaded on startup).
 
+**Grafana — application dashboard (RED metrics + antivirus verdicts)**
+
+Request rate, error rate and latency percentiles (the RED method), plus document
+counts by scan status read straight from PostgreSQL — an EICAR upload lights up the
+"Infected documents" panel in red.
+
+![Application dashboard — RED metrics and antivirus verdicts](docs/screenshots/vault-app.png)
+
 **Grafana — host metrics (Node Exporter)**
 
 ![Grafana host dashboard](docs/screenshots/grafana.png)
