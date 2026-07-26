@@ -54,6 +54,12 @@ HTTP_LATENCY = Histogram(
 # Business metrics: what the service actually does.
 UPLOADS = Counter("vault_uploads_total", "Documents uploaded")
 UPLOAD_BYTES = Counter("vault_upload_bytes_total", "Bytes uploaded")
+# Where does an upload actually spend its time? One histogram per backend call,
+# so a slow upload can be attributed to MinIO, PostgreSQL, Redis or Kafka
+# instead of being guessed at.
+UPLOAD_STEP = Histogram(
+    "vault_upload_step_duration_seconds", "Duration of each step of an upload",
+    ["step"])
 
 @app.before_request
 def _start_timer():
@@ -318,24 +324,31 @@ def index():
 @login_required
 def upload():
     f = request.files["file"]
-    data = f.read()
+    # Each step is timed separately (UPLOAD_STEP) so the dashboard shows which
+    # backend an upload actually waits on.
+    with UPLOAD_STEP.labels("read").time():
+        data = f.read()
     # 1) store the file in MinIO (S3)
-    minio_client().put_object(BUCKET, f.filename, io.BytesIO(data), length=len(data))
+    with UPLOAD_STEP.labels("minio").time():
+        minio_client().put_object(BUCKET, f.filename, io.BytesIO(data), length=len(data))
     # 2) store metadata in PostgreSQL
-    conn = db(); cur = conn.cursor()
-    cur.execute("INSERT INTO documents(name) VALUES (%s) RETURNING id", (f.filename,))
-    doc_id = cur.fetchone()[0]
-    conn.commit(); cur.close(); conn.close()
+    with UPLOAD_STEP.labels("postgres").time():
+        conn = db(); cur = conn.cursor()
+        cur.execute("INSERT INTO documents(name) VALUES (%s) RETURNING id", (f.filename,))
+        doc_id = cur.fetchone()[0]
+        conn.commit(); cur.close(); conn.close()
     # 3) increment the counter in Redis
-    r.incr("uploads")
+    with UPLOAD_STEP.labels("redis").time():
+        r.incr("uploads")
     UPLOADS.inc()
     UPLOAD_BYTES.inc(len(data))
     # 4) publish an event to Kafka
     try:
-        p = KafkaProducer(bootstrap_servers=KAFKA_BROKER,
-                          value_serializer=lambda v: json.dumps(v).encode())
-        p.send("document-events", {"event": "upload", "name": f.filename, "id": doc_id})
-        p.flush()
+        with UPLOAD_STEP.labels("kafka").time():
+            p = KafkaProducer(bootstrap_servers=KAFKA_BROKER,
+                              value_serializer=lambda v: json.dumps(v).encode())
+            p.send("document-events", {"event": "upload", "name": f.filename, "id": doc_id})
+            p.flush()
     except Exception as e:
         print("kafka producer error:", e)
     return redirect("/")

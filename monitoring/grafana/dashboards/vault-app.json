@@ -133,6 +133,32 @@
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.95, sum by (le) (rate(vault_scan_duration_seconds_bucket[5m])))", "legendFormat": "p95" }
       ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Where does an upload spend its time? (avg per step, stacked)",
+      "description": "Average seconds spent in each backend per upload. Stacked, so the tallest band is the bottleneck.",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 45, "stacking": { "mode": "normal" }, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (step) (rate(vault_upload_step_duration_seconds_sum[5m])) / sum by (step) (rate(vault_upload_step_duration_seconds_count[5m]))", "legendFormat": "{{step}}" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Upload time breakdown (avg per step)",
+      "description": "Same data as a ranking: which backend is the slowest right now.",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "continuous-GrYlRd" }, "noValue": "0" }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] }, "showUnfilled": true },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (step) (rate(vault_upload_step_duration_seconds_sum[5m])) / sum by (step) (rate(vault_upload_step_duration_seconds_count[5m]))", "legendFormat": "{{step}}", "instant": true }
+      ]
     }
   ]
 }
