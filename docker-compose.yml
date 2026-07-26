@@ -118,7 +118,7 @@ services:
 
   # --- Monitoring ---
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:3.0.0     # pinned: 3.0 dropped the 2.x ingester/compactor config blocks
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
       - ./monitoring/tempo.yaml:/etc/tempo.yaml:ro
