@@ -4,6 +4,12 @@ from minio import Minio
 from kafka import KafkaConsumer
 import clamd
 from prometheus_client import start_http_server, Counter, Histogram
+from opentelemetry.propagate import extract
+from opentelemetry.trace import SpanKind
+from otel import setup_tracing, instrument_clients
+
+tracer = setup_tracing("vault-worker")
+instrument_clients()
 
 
 def read_secret(name, default=""):
@@ -81,14 +87,16 @@ def handle(event):
     name = event.get("name"); doc_id = event.get("id")
     print("Scanning:", name, flush=True)
     try:
-        obj = minio_client().get_object(BUCKET, name)
-        data = obj.read(); obj.close(); obj.release_conn()
-        with SCAN_DURATION.time():
+        with tracer.start_as_current_span("minio.get_object"):
+            obj = minio_client().get_object(BUCKET, name)
+            data = obj.read(); obj.close(); obj.release_conn()
+        with tracer.start_as_current_span("clamav.scan"), SCAN_DURATION.time():
             status = scan_bytes(data)
     except Exception as e:
         print("scan error:", e, flush=True); status = "error"
     SCANS.labels(status).inc()
-    set_status(doc_id, name, status)
+    with tracer.start_as_current_span("postgres.set_status"):
+        set_status(doc_id, name, status)
     print("Result:", name, "->", status, flush=True)
 
 
@@ -107,7 +115,14 @@ def main():
             )
             print("Worker connected to Kafka, waiting for events...", flush=True)
             for msg in consumer:
-                handle(msg.value)
+                # Rebuild the trace context the app put in the Kafka headers, so
+                # this scan attaches to the upload's trace instead of starting
+                # an orphan one.
+                carrier = {k: v.decode() for k, v in (msg.headers or [])}
+                ctx = extract(carrier)
+                with tracer.start_as_current_span("scan document", context=ctx,
+                                                  kind=SpanKind.CONSUMER):
+                    handle(msg.value)
             return
         except Exception as e:
             print("waiting for kafka...", e, flush=True); time.sleep(3)

@@ -15,3 +15,23 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: true
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: true
+    jsonData:
+      # From a trace, jump straight to that container's logs in Loki.
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: -2m
+        spanEndTimeShift: 2m
+        filterByTraceID: false
+        tags: [{ key: 'service.name', value: 'container' }]
+      # Show the RED metrics next to a trace.
+      tracesToMetrics:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true

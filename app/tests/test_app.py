@@ -15,6 +15,7 @@ import pytest
 os.environ["ADMIN_USER"] = "admin"
 os.environ["ADMIN_PASSWORD"] = "test-password"
 os.environ["SECRET_KEY"] = "test-secret-key"
+os.environ["OTEL_SDK_DISABLED"] = "true"   # no trace collector in CI
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -116,3 +117,38 @@ def test_read_secret_falls_back_to_env_then_default():
     finally:
         del os.environ["DEMO_SECRET"]
     assert vault.read_secret("DEMO_SECRET_MISSING", "fallback") == "fallback"
+
+
+# --- distributed tracing across Kafka --------------------------------------
+
+def test_trace_context_survives_kafka_headers():
+    """The app injects the trace context into Kafka headers and the worker
+    extracts it — that round-trip is what links an upload to its later scan."""
+    from opentelemetry import trace
+    from opentelemetry.propagate import inject, extract
+    from opentelemetry.sdk.trace import TracerProvider
+
+    # OTEL_SDK_DISABLED (set above for the app) makes the SDK produce non-recording
+    # spans, which propagate nothing — lift it for this test only.
+    os.environ.pop("OTEL_SDK_DISABLED", None)
+    try:
+        provider = TracerProvider()
+        tracer = provider.get_tracer("test")
+
+        with tracer.start_as_current_span("upload") as span:
+            expected_trace_id = span.get_span_context().trace_id
+            carrier = {}
+            inject(carrier)
+    finally:
+        os.environ["OTEL_SDK_DISABLED"] = "true"
+
+    # The app encodes the carrier as Kafka headers; the worker decodes them.
+    kafka_headers = [(k, v.encode()) for k, v in carrier.items()]
+    assert any(k == "traceparent" for k, _ in kafka_headers)
+
+    decoded = {k: v.decode() for k, v in kafka_headers}
+    ctx = extract(decoded)
+    restored = trace.get_current_span(ctx).get_span_context()
+
+    # Same trace on the other side of the broker: the scan joins the upload.
+    assert restored.trace_id == expected_trace_id

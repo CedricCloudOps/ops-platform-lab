@@ -14,6 +14,7 @@ the skills of a **System & Software Operations Engineer**.
 - **Event-driven antivirus** — each upload triggers a Kafka worker that scans the file with **ClamAV** and records the verdict.
 - **Full observability (3 pillars)** — metrics (**Prometheus**), logs (**Loki**), alerts (**Alertmanager**); Grafana dashboards provisioned as code.
 - **Application-level metrics (RED)** — the app and the antivirus worker expose their own `/metrics`: request rate, error rate and latency percentiles, plus business counters (uploads, clean/infected scans) on a dedicated Grafana dashboard.
+- **Distributed tracing** — **OpenTelemetry → Tempo**: every upload is traced through MinIO, PostgreSQL, Redis and Kafka, and the trace context is carried in the Kafka headers so the antivirus scan that happens seconds later, in another process, joins the **same trace**.
 - **Secure by default** — HTTPS/TLS, session authentication, **Docker secrets** (no plaintext passwords), **Trivy** image scanning in CI.
 - **Orchestration** — Docker Compose *and* Kubernetes (k3s): scaling, self-healing, rolling updates, rollback.
 - **Infrastructure as Code** — **Terraform** (validated in CI) + Ansible.
@@ -66,6 +67,7 @@ watch everything.
 | Metrics | Prometheus + exporters (node, cAdvisor, postgres, redis) |
 | Dashboards | Grafana (provisioned as code) |
 | Logs | Loki + Promtail |
+| Traces | OpenTelemetry + Grafana Tempo (context propagated through Kafka) |
 | Alerting | Alertmanager |
 | Orchestration | Kubernetes (k3s) |
 | CI | GitHub Actions (build, Trivy scan, Compose & Terraform validate) |

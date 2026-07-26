@@ -61,6 +61,16 @@ curl -k -s -o /dev/null -w "%{http_code}\n" https://localhost/    # expect 302
 ```
 - **Grafana** → dashboards: **Document Vault — Application (RED)** (request rate, errors, latency, uploads, scan results), host (Node Exporter), containers (Docker), PostgreSQL, Redis, Prometheus.
 - **App metrics** → the app exposes `/metrics` internally (blocked at Nginx from outside); the worker exposes `worker:9101/metrics`. Both are scraped by Prometheus (`/targets` → `vault-app`, `vault-worker`).
+- **Traces** → Grafana → Explore → **Tempo** → *Search*, service `vault-app`, operation `POST /upload`. A trace shows the upload span by span (MinIO, PostgreSQL, Redis, Kafka) and, further down the same trace, the `scan document` span produced by the worker. Use it when latency is high but the metrics don't say which backend is to blame.
+
+```bash
+# Is Tempo healthy and receiving spans?
+curl -s http://localhost:3200/ready
+docker compose logs --tail 20 tempo
+```
+
+> Tracing is best-effort: if Tempo is down, spans are dropped in the background
+> and the application keeps serving normally.
 - **Prometheus** → `/targets` (all UP) and `/alerts` (all green/inactive).
 - **Logs** → Grafana → Explore → Loki, e.g. `{container=~"ops-platform-lab-.*"} |= "error"`.
 

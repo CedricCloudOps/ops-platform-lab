@@ -63,6 +63,7 @@ services:
       ADMIN_USER: ${ADMIN_USER:-admin}
       ADMIN_PASSWORD_FILE: /run/secrets/admin_password
       SECRET_KEY_FILE: /run/secrets/secret_key
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
     secrets:
       - postgres_password
       - minio_password
@@ -91,6 +92,7 @@ services:
       MINIO_PASSWORD_FILE: /run/secrets/minio_password
       CLAMAV_HOST: clamav
       METRICS_PORT: "9101"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
     expose:
       - "9101"          # Prometheus scrapes worker:9101/metrics (internal only)
     secrets:
@@ -115,6 +117,16 @@ services:
     restart: unless-stopped
 
   # --- Monitoring ---
+  tempo:
+    image: grafana/tempo:latest
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./monitoring/tempo.yaml:/etc/tempo.yaml:ro
+      - tempodata:/var/tempo
+    ports:
+      - "3200:3200"     # Tempo API (Grafana queries it internally)
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus
     volumes:
@@ -207,6 +219,7 @@ volumes:
   grafana-data:
   promdata:
   redisdata:
+  tempodata:
 
 secrets:
   postgres_password:

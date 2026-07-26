@@ -6,6 +6,8 @@ import redis
 from minio import Minio
 from kafka import KafkaProducer
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from opentelemetry.propagate import inject
+from otel import setup_tracing, instrument_clients
 
 def read_secret(name, default=""):
     """Read a secret from <NAME>_FILE (Docker secret) if present, else the
@@ -39,6 +41,16 @@ ADMIN_PASSWORD = read_secret("ADMIN_PASSWORD", "admin")
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
+
+# --- Distributed tracing --------------------------------------------------
+# Every HTTP request becomes a trace; each backend call (PostgreSQL, Redis,
+# MinIO) becomes a child span, so a slow upload can be read span by span.
+tracer = setup_tracing("vault-app")
+if os.environ.get("OTEL_SDK_DISABLED", "").lower() != "true":
+    from opentelemetry.instrumentation.flask import FlaskInstrumentor
+    FlaskInstrumentor().instrument_app(app, excluded_urls="/health,/metrics")
+instrument_clients()
+
 r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
 
 # --- Prometheus metrics ---------------------------------------------------
@@ -345,9 +357,16 @@ def upload():
     # 4) publish an event to Kafka
     try:
         with UPLOAD_STEP.labels("kafka").time():
+            # Carry the trace context in the Kafka headers (W3C traceparent), so
+            # the worker's scan — which happens seconds later, in another
+            # process — shows up in the SAME trace as this upload.
+            carrier = {}
+            inject(carrier)
+            headers = [(k, v.encode()) for k, v in carrier.items()]
             p = KafkaProducer(bootstrap_servers=KAFKA_BROKER,
                               value_serializer=lambda v: json.dumps(v).encode())
-            p.send("document-events", {"event": "upload", "name": f.filename, "id": doc_id})
+            p.send("document-events", {"event": "upload", "name": f.filename, "id": doc_id},
+                   headers=headers)
             p.flush()
     except Exception as e:
         print("kafka producer error:", e)
