@@ -13,6 +13,9 @@ services:
 
   redis:
     image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]   # AOF persistence: survive restarts
+    volumes:
+      - redisdata:/data
     restart: unless-stopped
 
   minio:
@@ -200,6 +203,7 @@ volumes:
   miniodata:
   grafana-data:
   promdata:
+  redisdata:
 
 secrets:
   postgres_password:
