@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: quay.io/minio/minio
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_USER:-admin}
@@ -102,7 +102,7 @@ services:
     restart: unless-stopped
 
   clamav:
-    image: clamav/clamav:latest
+    image: clamav/clamav:1.5.3
     restart: unless-stopped
 
   nginx:
@@ -128,7 +128,7 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus:v3.13.1
     # --web.enable-lifecycle allows reloading the config without restarting:
     #   curl -X POST http://localhost:9090/-/reload
     # A restart drops in-flight scrapes and re-reads everything; a reload picks
@@ -147,7 +147,7 @@ services:
     restart: unless-stopped
 
   alertmanager:
-    image: prom/alertmanager
+    image: prom/alertmanager:v0.33.1
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     ports:
@@ -155,13 +155,13 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.7.3
     ports:
       - "3100:3100"
     restart: unless-stopped
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:3.6.8
     command: -config.file=/etc/promtail/config.yml
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
@@ -170,7 +170,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:13.1.0
     ports:
       - "3000:3000"
     volumes:
@@ -180,7 +180,7 @@ services:
     restart: unless-stopped
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.12.0
     command:
       - '--path.rootfs=/host'
     pid: host
@@ -189,7 +189,7 @@ services:
     restart: unless-stopped
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     privileged: true
     devices:
       - /dev/kmsg
@@ -202,7 +202,7 @@ services:
     restart: unless-stopped
 
   postgres-exporter:
-    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
     environment:
       DATA_SOURCE_URI: "postgres:5432/vault?sslmode=disable"
       DATA_SOURCE_USER: vault
@@ -216,7 +216,7 @@ services:
     restart: unless-stopped
 
   redis-exporter:
-    image: oliver006/redis_exporter:latest
+    image: oliver006/redis_exporter:v1.86.0
     environment:
       REDIS_ADDR: redis://redis:6379
     depends_on: [redis]

@@ -146,6 +146,11 @@ Same trace as a node graph — Tempo colours the dominant node red on its own:
 
 </details>
 
+> **Every image is pinned to a version.** `latest` once shipped a new Tempo whose
+> config schema had changed, and the service crash-looped although nothing in this
+> repository had moved. A deployment is only reproducible if it pulls the same
+> bytes tomorrow as it did today.
+
 ## Prerequisites
 
 | Requirement | Details |
