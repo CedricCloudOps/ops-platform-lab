@@ -53,8 +53,11 @@ docker compose restart nginx  # restart a single service
 
 `docker compose up -d` compares the **service definition**, not the contents of
 the files it mounts. Editing `prometheus.yml`, `alerts.yml` or `nginx/default.conf`
-therefore changes nothing until the process re-reads them — and the CD timer does
-not help, it only runs `up -d --build`.
+therefore changes nothing until the process re-reads them.
+
+**Pushed to `main`, this is now automatic**: `scripts/deploy.sh` diffs the incoming
+revision and reloads only what changed — Prometheus and Nginx in place, Grafana and
+Promtail by restart. The commands below are for local edits that are not committed.
 
 ```bash
 # Reload without downtime (preferred)
