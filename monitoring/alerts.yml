@@ -54,3 +54,72 @@ groups:
         annotations:
           summary: "Redis is down"
           description: "The Redis exporter reports redis_up == 0 for 1 minute."
+
+  # Alerts on what the service actually does, not just on the machine it runs on.
+  # A host can be perfectly healthy while the application returns 500s, stops
+  # scanning uploads, or lets infected files through.
+  - name: application-alerts
+    rules:
+      - alert: VaultHighErrorRate
+        expr: >
+          sum(rate(vault_http_requests_total{status=~"5.."}[5m]))
+          / sum(rate(vault_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Document Vault is failing requests"
+          description: "More than 5% of HTTP requests returned 5xx over the last 5 minutes."
+
+      - alert: VaultHighLatency
+        expr: >
+          histogram_quantile(0.95,
+            sum by (le) (rate(vault_http_request_duration_seconds_bucket[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Document Vault is slow"
+          description: "95th percentile latency has been above 2s for 10 minutes. Check the trace in Tempo to see which backend is responsible."
+
+      - alert: VaultInfectedDocument
+        expr: increase(vault_scans_total{result="infected"}[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Infected document detected"
+          description: "The antivirus worker flagged at least one uploaded file as infected in the last 10 minutes."
+
+      - alert: VaultScanBacklog
+        # Both sides are wrapped in sum() so they carry the same (empty) label
+        # set - 'and' only matches series with identical labels. The 'or vector(0)'
+        # covers a freshly restarted worker that has no scan series yet.
+        expr: >
+          sum(increase(vault_uploads_total[15m])) > 0
+          and (sum(increase(vault_scans_total[15m])) or vector(0)) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Uploads are not being scanned"
+          description: "Files were uploaded in the last 15 minutes but no scan completed: the worker, Kafka or ClamAV is stuck."
+
+      - alert: VaultDocumentsStuckPending
+        expr: vault_documents_count{status="pending"} > 5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Documents stuck waiting for a scan"
+          description: "{{ $value }} documents have been pending for over 15 minutes: they were never picked up by the antivirus worker."
+
+      - alert: VaultScanTooSlow
+        expr: >
+          histogram_quantile(0.95,
+            sum by (le) (rate(vault_scan_duration_seconds_bucket[10m]))) > 30
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Antivirus scans are taking too long"
+          description: "95th percentile scan duration has been above 30s for 10 minutes."
