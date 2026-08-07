@@ -129,6 +129,15 @@ services:
 
   prometheus:
     image: prom/prometheus
+    # --web.enable-lifecycle allows reloading the config without restarting:
+    #   curl -X POST http://localhost:9090/-/reload
+    # A restart drops in-flight scrapes and re-reads everything; a reload picks
+    # up new scrape targets and alert rules with no downtime. The endpoint is
+    # only reachable from the host and the internal network, never through Nginx.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro

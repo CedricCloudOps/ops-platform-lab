@@ -49,6 +49,26 @@ docker compose down           # stop and remove containers (volumes/data are kep
 docker compose restart nginx  # restart a single service
 ```
 
+### Applying a configuration change
+
+`docker compose up -d` compares the **service definition**, not the contents of
+the files it mounts. Editing `prometheus.yml`, `alerts.yml` or `nginx/default.conf`
+therefore changes nothing until the process re-reads them — and the CD timer does
+not help, it only runs `up -d --build`.
+
+```bash
+# Reload without downtime (preferred)
+curl -X POST http://localhost:9090/-/reload      # Prometheus: config + alert rules
+docker compose exec nginx nginx -s reload        # Nginx: no connection dropped
+
+# Otherwise, restart the service
+docker compose restart grafana                   # datasources are read at startup only
+```
+
+> Careful: `promtool check rules` reads the **file**, which a bind mount updates
+> instantly. It can report the new rules while the running Prometheus still holds
+> the old ones. Check `/api/v1/rules` to see what the process actually loaded.
+
 > ClamAV takes ~2 minutes to load its virus database on first start (`health: starting`).
 
 ---
