@@ -101,15 +101,45 @@ docker compose logs --tail 20 tempo
 
 ## 5. Backup & restore
 
-```bash
-# Backup PostgreSQL (the -T is required when redirecting to a file)
-docker compose exec -T postgres pg_dump -U vault vault > backup_$(date +%F).sql
+The vault holds data in **two places that must be saved together**: PostgreSQL
+(metadata, scan verdicts) and MinIO (the files). `scripts/backup.sh` takes both
+in one run, checks that the PostgreSQL dump is readable, and keeps 7 days.
 
-# Restore
-cat backup_YYYY-MM-DD.sql | docker compose exec -T postgres psql -U vault -d vault
+```bash
+# Install the nightly backup (02:30)
+sudo cp scripts/vault-backup.service scripts/vault-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now vault-backup.timer
+
+# Run one now, then check it
+sudo systemctl start vault-backup.service
+journalctl -u vault-backup.service -n 20 --no-pager
+ls /var/backups/vault/
 ```
-- MinIO objects live in the `miniodata` volume; mirror the bucket off-site for real backups.
-- **Recommended:** schedule the backup with `cron` and verify a restore periodically (a backup you never restore is not a backup).
+
+Each run creates `/var/backups/vault/<date_time>/` with `postgres.dump` and `minio/`.
+
+**Restore** (for example into a fresh stack, to test the backup):
+
+```bash
+B=/var/backups/vault/2026-09-27_0230          # the run to restore
+
+# PostgreSQL
+docker compose exec -T postgres pg_restore -U vault -d vault --clean --if-exists < $B/postgres.dump
+
+# MinIO: copy the files into the container, mirror them back into the bucket
+docker compose cp $B/minio minio:/tmp/vault-restore
+docker compose exec -T minio sh -c '
+  mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$(cat /run/secrets/minio_password)" >/dev/null &&
+  mc mirror --overwrite /tmp/vault-restore local/documents && rm -rf /tmp/vault-restore'
+
+# Check: same number of documents, and a clean file downloads again
+docker compose exec postgres psql -U vault -d vault -c "SELECT scan_status, COUNT(*) FROM documents GROUP BY 1;"
+```
+
+- **3-2-1**: `/var/backups` is on the same disk as the data, so it protects
+  against mistakes, not against losing the server. Copy it off-site
+  (`rsync` or `rclone` to another host or object storage).
+- **Test a restore regularly.** A backup you have never restored is not a backup.
 
 ---
 
@@ -163,7 +193,7 @@ ordinary file to confirm the `clean` path. Delete `/tmp/eicar.com` afterwards.
 | **502 Bad Gateway** (nginx) | app not ready, or stale upstream IP | wait 30s; `docker compose restart nginx` (nginx now re-resolves via `resolver 127.0.0.11`) |
 | **404 page not found** (plain text) on external IP, but `localhost` works | k3s Traefik hijacking port 80 via leftover iptables | `sudo /usr/local/bin/k3s-killall.sh && sudo systemctl restart docker && docker compose up -d` |
 | **Build fails**: `lookup registry-1.docker.io ... i/o timeout` | host DNS (VMware NAT) unreliable | set DNS in netplan (`dhcp4-overrides: use-dns: false` + `nameservers: [8.8.8.8, 1.1.1.1]`) |
-| Alert **HostDiskAlmostFull** | root filesystem full | `df -h`; `docker system prune -f`; extend LVM: `lvextend -l +100%FREE ... && resize2fs ...` |
+| Alert **HostDiskAlmostFull** | root filesystem full | `df -h`; check `/var/backups/vault` (retention); `docker system prune -f`; extend LVM: `lvextend -l +100%FREE ... && resize2fs ...` |
 | A container in **Restarting** | crash at startup | `docker compose logs <svc>` — read the error first (missing secret, port conflict, OOM...) |
 | systemd deploy `203/EXEC` | script not executable | `chmod +x scripts/deploy.sh` |
 
