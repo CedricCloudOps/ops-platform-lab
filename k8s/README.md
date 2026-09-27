@@ -9,7 +9,7 @@ rolling updates).
 
 | File | Contents |
 |------|----------|
-| `00-infra.yaml` | PostgreSQL, Redis, MinIO, Kafka, ClamAV (Deployments + Services + PVCs) |
+| `00-infra.yaml` | PostgreSQL (**StatefulSet**), Redis, MinIO, Kafka, ClamAV (Deployments + Services + PVCs) |
 | `10-app.yaml` | App Deployment + Service + **HPA**, and the worker Deployment |
 | `20-ingress.yaml` | Ingress rules (needs an Ingress Controller — Traefik ships with k3s) |
 | `app-deployment.yaml` | Standalone Nginx demo used to practise scaling/rollback |
@@ -115,9 +115,22 @@ this label") and Prometheus reconfigures itself — no more editing `prometheus.
 - **Probes**: the app's `/health` endpoint backs the readiness and liveness probes.
 - **HPA**: requires `resources.requests` on the containers and a metrics-server
   (k3s includes one).
-- **Stateful services**: PostgreSQL and MinIO use PersistentVolumeClaims (k3s
-  provides a local-path provisioner). In production these are usually **managed
-  services** outside the cluster.
+- **Stateful services**: PostgreSQL is a **StatefulSet** (stable pod name
+  `postgres-0`, volume `data-postgres-0` created from `volumeClaimTemplates`,
+  old pod stopped before the new one starts). MinIO uses a plain
+  PersistentVolumeClaim. k3s provides a local-path provisioner. In production
+  these are usually **managed services** outside the cluster.
+- **Upgrading from the Deployment version of PostgreSQL**: the StatefulSet
+  creates a new volume, so the old `pgdata` claim is not reused. Dump first,
+  apply, then restore:
+  ```bash
+  sudo k3s kubectl exec deploy/postgres -- pg_dump -U vault -Fc vault > vault.dump
+  sudo k3s kubectl delete deploy/postgres
+  sudo k3s kubectl apply -f k8s/00-infra.yaml
+  sudo k3s kubectl exec -i postgres-0 -- pg_restore -U vault -d vault --clean --if-exists < vault.dump
+  sudo k3s kubectl delete pvc pgdata        # once the restore is verified
+  ```
+- **Images** are pinned to the same versions as the Compose stack.
 - **MinIO**: its root password must be **at least 8 characters**, otherwise the pod
   crashes at startup.
 
