@@ -37,14 +37,26 @@ jobs:
       - name: Build application image
         run: docker build -t vault-app ./app
 
-      - name: Scan image for vulnerabilities (Trivy)
+      # Two passes: the report lists HIGH and CRITICAL findings for the reader;
+      # the gate fails the build only on a CRITICAL that already has a fix,
+      # i.e. one we can act on by bumping a package or the base image.
+      - name: Scan image for vulnerabilities (Trivy report)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: vault-app
           format: table
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: '0'   # report only (set to '1' to fail the build on HIGH/CRITICAL)
+          exit-code: '0'
+
+      - name: Fail on fixable CRITICAL vulnerabilities (Trivy gate)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: vault-app
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
 
       - name: Validate Docker Compose file
         run: docker compose config --quiet
