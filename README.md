@@ -73,6 +73,7 @@ watch everything.
 | CI | GitHub Actions (build, Trivy scan, Compose & Terraform validate) |
 | IaC | Terraform (AWS), Ansible |
 | CD | GitOps pull-based (systemd timer) |
+| Backup | Nightly PostgreSQL dump + MinIO mirror, verified, 7-day retention (systemd timer) |
 
 ## Screenshots
 
@@ -200,6 +201,7 @@ kubectl rollout undo deployment/web           # rollback
 ## Delivery (CI/CD & IaC)
 - **CI** — `.github/workflows/ci.yml`: **runs the unit tests first**, then builds the app image, **scans it with Trivy**, and validates the Compose file and the Terraform config on every push. The image is only built if the tests pass (`needs: test`).
 - **CD** — pull-based **GitOps**: a systemd timer (`scripts/vault-deploy.timer`) reconciles the host with `origin/main` every 2 minutes.
+- **Backup** — `scripts/backup.sh`, run nightly by `scripts/vault-backup.timer`: PostgreSQL dump (checked with `pg_restore --list`) and MinIO bucket mirror in the same folder; restore steps in the [RUNBOOK](docs/RUNBOOK.md).
 - **IaC** — `terraform/` provisions the cloud VM (EC2 + security group + Docker bootstrap); `ansible/playbook.yml` installs Docker idempotently.
 
 ## Documentation

@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up Document Vault (PostgreSQL + MinIO)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/cedric/ops-platform-lab/scripts/backup.sh
