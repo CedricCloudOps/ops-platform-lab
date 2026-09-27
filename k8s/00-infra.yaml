@@ -1,21 +1,29 @@
 # Backing services for the Document Vault: PostgreSQL, Redis, MinIO, Kafka, ClamAV.
 # Each service gets a Deployment + a ClusterIP Service so the app can reach it by name.
 ---
+# PostgreSQL runs as a StatefulSet, not a Deployment: the pod keeps a stable
+# identity (postgres-0) and its own volume, created from volumeClaimTemplates.
+# A Deployment could start a second pod on the same ReadWriteOnce volume during
+# a rolling update; a StatefulSet stops the old pod before starting the new one.
+# Still a single instance: no replication, so no high availability (see
+# docs/known-limitations.md).
 apiVersion: v1
-kind: PersistentVolumeClaim
+kind: Service
 metadata:
-  name: pgdata
+  name: postgres-headless
 spec:
-  accessModes: [ReadWriteOnce]
-  resources:
-    requests:
-      storage: 2Gi
+  clusterIP: None          # headless: gives the pod a stable DNS name
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postgres
 spec:
+  serviceName: postgres-headless
   replicas: 1
   selector:
     matchLabels:
@@ -44,13 +52,22 @@ spec:
             - name: data
               mountPath: /var/lib/postgresql/data
               subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "vault", "-d", "vault"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { cpu: 500m, memory: 512Mi }
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: pgdata
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 2Gi
 ---
 apiVersion: v1
 kind: Service
@@ -123,7 +140,7 @@ spec:
     spec:
       containers:
         - name: minio
-          image: quay.io/minio/minio
+          image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
           args: ["server", "/data", "--console-address", ":9001"]
           env:
             - name: MINIO_ROOT_USER
@@ -235,7 +252,7 @@ spec:
     spec:
       containers:
         - name: clamav
-          image: clamav/clamav:latest
+          image: clamav/clamav:1.5.3
           ports:
             - containerPort: 3310
           resources:
