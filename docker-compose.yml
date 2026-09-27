@@ -150,6 +150,9 @@ services:
     image: prom/alertmanager:v0.33.1
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Telegram bot token + chat id (git-ignored, see secrets/README.md).
+      # Only this sub-folder is mounted: Alertmanager never sees the other secrets.
+      - ./secrets/telegram:/etc/alertmanager/telegram:ro
     ports:
       - "9093:9093"
     restart: unless-stopped

@@ -24,5 +24,21 @@ printf '%s' "your-admin-login-password" > secrets/admin_password.txt
 openssl rand -hex 32                     > secrets/secret_key.txt
 ```
 
+### Alerting (Telegram)
+
+Alertmanager sends alerts to a Telegram chat. Create a bot with
+[@BotFather](https://t.me/BotFather), send it one message, then read your chat
+id from `https://api.telegram.org/bot<TOKEN>/getUpdates` (`"chat":{"id":...}`).
+
+```bash
+mkdir -p secrets/telegram
+printf '%s' "123456:ABC-your-bot-token" > secrets/telegram/bot_token.txt
+printf '%s' "your-chat-id"              > secrets/telegram/chat_id.txt
+docker compose restart alertmanager
+```
+
+Without these files the stack still starts; alerts are visible in the
+Alertmanager UI but sending fails (logged by `docker compose logs alertmanager`).
+
 > If PostgreSQL was already initialised, keep the **same** password it was
 > created with (PostgreSQL sets the password only on first init).

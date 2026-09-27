@@ -5,6 +5,7 @@
 *.crt
 nginx/certs/
 secrets/*.txt
+secrets/telegram/
 
 # Python
 __pycache__/
