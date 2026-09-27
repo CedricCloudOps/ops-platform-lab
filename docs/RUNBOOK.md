@@ -173,7 +173,7 @@ General method: **container status → logs → ports → resources → network.
 
 ## 8. Incident response process
 
-1. **Detect** — an alert fires (Alertmanager) or a user reports.
+1. **Detect** — an alert fires (Alertmanager → Telegram) or a user reports.
 2. **Qualify** — impact, severity, scope.
 3. **Restore first** — bring the service back (mitigate), even temporarily.
 4. **Root cause** — diagnose calmly (logs, metrics).

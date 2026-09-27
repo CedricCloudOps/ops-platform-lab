@@ -68,7 +68,7 @@ watch everything.
 | Dashboards | Grafana (provisioned as code) |
 | Logs | Loki + Promtail |
 | Traces | OpenTelemetry + Grafana Tempo (context propagated through Kafka) |
-| Alerting | Alertmanager |
+| Alerting | Alertmanager → Telegram (critical hourly, warnings twice a day) |
 | Orchestration | Kubernetes (k3s) |
 | CI | GitHub Actions (build, Trivy scan, Compose & Terraform validate) |
 | IaC | Terraform (AWS), Ansible |

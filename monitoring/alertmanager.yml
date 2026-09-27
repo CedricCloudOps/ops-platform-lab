@@ -1,11 +1,30 @@
-# Basic routing. In production, add a real receiver (email, Slack, PagerDuty...).
-# Here alerts group into a no-op receiver and are visible in the Alertmanager UI (:9093).
+# Alerts go to a Telegram chat, so a failure reaches a phone instead of
+# waiting in the Alertmanager UI (:9093) for someone to look.
+#
+# The bot token and the chat id are read from files, never written here:
+# secrets/telegram/bot_token.txt and secrets/telegram/chat_id.txt, mounted
+# read-only into the container (see secrets/README.md). Alertmanager reads
+# them only when it sends, so the stack starts without them; alerts then
+# fail to send and the error shows in `docker compose logs alertmanager`.
 route:
-  receiver: default
+  receiver: telegram
   group_by: ['alertname']
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 3h
+  routes:
+    # Critical: service down, infected file, scans stuck. Remind every hour.
+    - matchers: ['severity="critical"']
+      receiver: telegram
+      repeat_interval: 1h
+    # Warning: degraded but working. Twice a day is enough.
+    - matchers: ['severity="warning"']
+      receiver: telegram
+      repeat_interval: 12h
 
 receivers:
-  - name: default
+  - name: telegram
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/telegram/bot_token.txt
+        chat_id_file: /etc/alertmanager/telegram/chat_id.txt
+        send_resolved: true
