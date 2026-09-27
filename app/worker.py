@@ -85,10 +85,13 @@ def set_status(doc_id, name, status):
 
 def handle(event):
     name = event.get("name"); doc_id = event.get("id")
+    # Events published before unique storage keys existed carry no "key":
+    # those files were stored under their original name.
+    key = event.get("key") or name
     print("Scanning:", name, flush=True)
     try:
         with tracer.start_as_current_span("minio.get_object"):
-            obj = minio_client().get_object(BUCKET, name)
+            obj = minio_client().get_object(BUCKET, key)
             data = obj.read(); obj.close(); obj.release_conn()
         with tracer.start_as_current_span("clamav.scan"), SCAN_DURATION.time():
             status = scan_bytes(data)
