@@ -1,4 +1,4 @@
-import os, io, json, time, hmac
+import os, io, json, time, hmac, threading, uuid
 from functools import wraps
 from flask import Flask, request, redirect, render_template_string, Response, abort, session
 import psycopg2
@@ -99,6 +99,53 @@ def login_required(f):
 def db():
     return psycopg2.connect(DATABASE_URL)
 
+def fetch_document(doc_id):
+    """Return (name, object_key, scan_status) for a document, or None."""
+    conn = db(); cur = conn.cursor()
+    cur.execute("SELECT name, object_key, scan_status FROM documents WHERE id=%s", (doc_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    return row
+
+def insert_document(name, object_key):
+    conn = db(); cur = conn.cursor()
+    cur.execute("INSERT INTO documents(name, object_key) VALUES (%s, %s) RETURNING id",
+                (name, object_key))
+    doc_id = cur.fetchone()[0]
+    conn.commit(); cur.close(); conn.close()
+    return doc_id
+
+def object_key_for(filename):
+    """Unique storage key for an upload. The original name is only a label kept
+    in PostgreSQL: two users uploading "report.pdf" must not overwrite each
+    other's file in MinIO."""
+    return "%s/%s" % (uuid.uuid4().hex, os.path.basename(filename))
+
+# One Kafka producer per process, created on first use and reused. Opening a
+# producer means connecting to the broker and fetching cluster metadata, far
+# too expensive to repeat on every upload. KafkaProducer is thread-safe.
+_producer = None
+_producer_lock = threading.Lock()
+
+def kafka_producer():
+    global _producer
+    with _producer_lock:
+        if _producer is None:
+            _producer = KafkaProducer(bootstrap_servers=KAFKA_BROKER,
+                                      value_serializer=lambda v: json.dumps(v).encode())
+        return _producer
+
+def reset_kafka_producer():
+    """Drop a broken producer so the next upload opens a fresh connection."""
+    global _producer
+    with _producer_lock:
+        if _producer is not None:
+            try:
+                _producer.close(timeout=1)
+            except Exception:
+                pass
+        _producer = None
+
 def minio_client():
     return Minio(MINIO_ENDPOINT, access_key=MINIO_USER, secret_key=MINIO_PASSWORD, secure=False)
 
@@ -111,6 +158,9 @@ def init():
                         "id SERIAL PRIMARY KEY, name TEXT, created_at TIMESTAMP DEFAULT now(), "
                         "scan_status TEXT DEFAULT 'pending')")
             cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS scan_status TEXT DEFAULT 'pending'")
+            # Storage key in MinIO (NULL for documents uploaded before this
+            # column existed: those were stored under their original name).
+            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS object_key TEXT")
             conn.commit(); cur.close(); conn.close()
             break
         except Exception as e:
@@ -241,13 +291,13 @@ a.doc-name:hover{color:var(--accent);text-decoration:underline}
       <li>
         <span class="ext ext-{{ ext or 'file' }}">{{ (ext or 'FILE')|upper }}</span>
         <div class="doc-info">
-          <a class="doc-name" href="/download/{{ d[1]|urlencode }}">{{ d[1] }}</a>
+          {% if st == 'clean' %}<a class="doc-name" href="/download/{{ d[0] }}">{{ d[1] }}</a>{% else %}<span class="doc-name">{{ d[1] }}</span>{% endif %}
           <div class="doc-date">{{ d[2].strftime('%d/%m/%Y · %H:%M') if d[2] else '' }}</div>
         </div>
         <span class="status status-{{ st }}">{{ {'clean':'sain','infected':'infecté','pending':'scan…','error':'erreur'}.get(st, st) }}</span>
-        <a class="dl" href="/download/{{ d[1]|urlencode }}" title="Télécharger">
+        {% if st == 'clean' %}<a class="dl" href="/download/{{ d[0] }}" title="Télécharger">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-        </a>
+        </a>{% endif %}
       </li>
       {% endfor %}
     </ul>
@@ -335,20 +385,20 @@ def index():
 @app.route("/upload", methods=["POST"])
 @login_required
 def upload():
-    f = request.files["file"]
+    f = request.files.get("file")
+    if f is None or not f.filename:
+        return redirect("/")
+    key = object_key_for(f.filename)
     # Each step is timed separately (UPLOAD_STEP) so the dashboard shows which
     # backend an upload actually waits on.
     with UPLOAD_STEP.labels("read").time():
         data = f.read()
     # 1) store the file in MinIO (S3)
     with UPLOAD_STEP.labels("minio").time():
-        minio_client().put_object(BUCKET, f.filename, io.BytesIO(data), length=len(data))
+        minio_client().put_object(BUCKET, key, io.BytesIO(data), length=len(data))
     # 2) store metadata in PostgreSQL
     with UPLOAD_STEP.labels("postgres").time():
-        conn = db(); cur = conn.cursor()
-        cur.execute("INSERT INTO documents(name) VALUES (%s) RETURNING id", (f.filename,))
-        doc_id = cur.fetchone()[0]
-        conn.commit(); cur.close(); conn.close()
+        doc_id = insert_document(f.filename, key)
     # 3) increment the counter in Redis
     with UPLOAD_STEP.labels("redis").time():
         r.incr("uploads")
@@ -363,20 +413,31 @@ def upload():
             carrier = {}
             inject(carrier)
             headers = [(k, v.encode()) for k, v in carrier.items()]
-            p = KafkaProducer(bootstrap_servers=KAFKA_BROKER,
-                              value_serializer=lambda v: json.dumps(v).encode())
-            p.send("document-events", {"event": "upload", "name": f.filename, "id": doc_id},
+            p = kafka_producer()
+            p.send("document-events",
+                   {"event": "upload", "name": f.filename, "id": doc_id, "key": key},
                    headers=headers)
             p.flush()
     except Exception as e:
         print("kafka producer error:", e)
+        reset_kafka_producer()
     return redirect("/")
 
-@app.route("/download/<path:name>")
+@app.route("/download/<int:doc_id>")
 @login_required
-def download(name):
+def download(doc_id):
+    row = fetch_document(doc_id)
+    if row is None:
+        abort(404)
+    name, key, status = row
+    # A vault must never hand out a file the antivirus has not cleared:
+    # infected files are refused, files still being scanned must wait.
+    if status == "infected":
+        abort(403)
+    if status != "clean":
+        abort(409)
     try:
-        obj = minio_client().get_object(BUCKET, name)
+        obj = minio_client().get_object(BUCKET, key or name)
         data = obj.read()
         obj.close(); obj.release_conn()
     except Exception:

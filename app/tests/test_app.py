@@ -152,3 +152,147 @@ def test_trace_context_survives_kafka_headers():
 
     # Same trace on the other side of the broker: the scan joins the upload.
     assert restored.trace_id == expected_trace_id
+
+
+# --- download: only files the antivirus has cleared ------------------------
+
+class FakeObject:
+    def __init__(self, data):
+        self.data = data
+    def read(self):
+        return self.data
+    def close(self):
+        pass
+    def release_conn(self):
+        pass
+
+
+class FakeMinio:
+    def __init__(self):
+        self.stored = {}
+    def put_object(self, bucket, key, stream, length):
+        self.stored[key] = stream.read()
+    def get_object(self, bucket, key):
+        if key not in self.stored:
+            raise KeyError(key)
+        return FakeObject(self.stored[key])
+
+
+@pytest.fixture
+def fake_minio(monkeypatch):
+    fake = FakeMinio()
+    monkeypatch.setattr(vault, "minio_client", lambda: fake)
+    return fake
+
+
+@pytest.mark.parametrize("status, expected", [
+    ("infected", 403),     # never hand out a file flagged by ClamAV
+    ("pending", 409),      # scan not finished yet
+    ("error", 409),        # scan failed: not proven clean
+])
+def test_download_refuses_files_not_cleared(client, fake_minio, monkeypatch, status, expected):
+    fake_minio.stored["k/eicar.com"] = b"payload"
+    monkeypatch.setattr(vault, "fetch_document", lambda doc_id: ("eicar.com", "k/eicar.com", status))
+    login(client)
+    assert client.get("/download/1").status_code == expected
+
+
+def test_download_serves_clean_file(client, fake_minio, monkeypatch):
+    fake_minio.stored["k/report.pdf"] = b"%PDF-1.7"
+    monkeypatch.setattr(vault, "fetch_document", lambda doc_id: ("report.pdf", "k/report.pdf", "clean"))
+    login(client)
+    resp = client.get("/download/1")
+    assert resp.status_code == 200
+    assert resp.data == b"%PDF-1.7"
+    assert 'filename="report.pdf"' in resp.headers["Content-Disposition"]
+
+
+def test_download_legacy_document_falls_back_to_its_name(client, fake_minio, monkeypatch):
+    """Documents uploaded before object_key existed were stored under their name."""
+    fake_minio.stored["old.txt"] = b"legacy"
+    monkeypatch.setattr(vault, "fetch_document", lambda doc_id: ("old.txt", None, "clean"))
+    login(client)
+    assert client.get("/download/1").data == b"legacy"
+
+
+def test_download_unknown_document_is_404(client, monkeypatch):
+    monkeypatch.setattr(vault, "fetch_document", lambda doc_id: None)
+    login(client)
+    assert client.get("/download/999").status_code == 404
+
+
+# --- upload: unique storage key, one reusable Kafka producer ---------------
+
+class FakeProducer:
+    instances = 0
+    def __init__(self, **kwargs):
+        FakeProducer.instances += 1
+        self.sent = []
+    def send(self, topic, value, headers=None):
+        self.sent.append((topic, value))
+    def flush(self):
+        pass
+    def close(self, timeout=None):
+        pass
+
+
+class FakeRedis:
+    def incr(self, key):
+        return 1
+
+
+@pytest.fixture
+def upload_backends(fake_minio, monkeypatch):
+    ids = iter(range(1, 100))
+    monkeypatch.setattr(vault, "insert_document", lambda name, key: next(ids))
+    monkeypatch.setattr(vault, "r", FakeRedis())
+    monkeypatch.setattr(vault, "KafkaProducer", FakeProducer)
+    FakeProducer.instances = 0
+    vault.reset_kafka_producer()
+    yield fake_minio
+    vault.reset_kafka_producer()
+
+
+def upload(client, name, content=b"data"):
+    import io
+    return client.post("/upload", data={"file": (io.BytesIO(content), name)},
+                       content_type="multipart/form-data")
+
+
+def test_same_filename_twice_does_not_overwrite(client, upload_backends):
+    login(client)
+    upload(client, "report.pdf", b"first")
+    upload(client, "report.pdf", b"second")
+    stored = upload_backends.stored
+    assert len(stored) == 2                             # two distinct objects
+    assert sorted(stored.values()) == [b"first", b"second"]
+    assert all(k.endswith("/report.pdf") and k != "report.pdf" for k in stored)
+
+
+def test_kafka_producer_is_reused_across_uploads(client, upload_backends):
+    login(client)
+    for i in range(3):
+        upload(client, "f%d.txt" % i)
+    assert FakeProducer.instances == 1
+    event = vault.kafka_producer().sent[-1][1]
+    assert event["key"] in upload_backends.stored    # the worker gets the real key
+
+
+def test_upload_without_file_is_ignored(client, upload_backends):
+    login(client)
+    resp = client.post("/upload", data={}, content_type="multipart/form-data")
+    assert resp.status_code == 302
+    assert upload_backends.stored == {}
+
+
+def test_page_offers_download_link_only_for_clean_files():
+    from datetime import datetime
+    docs = [(1, "ok.pdf", datetime(2026, 9, 27), "clean"),
+            (2, "eicar.com", datetime(2026, 9, 27), "infected"),
+            (3, "new.docx", datetime(2026, 9, 27), "pending")]
+    with vault.app.test_request_context("/"):
+        html = vault.render_template_string(vault.PAGE, docs=docs, count=3, total=3, user="admin")
+    assert 'href="/download/1"' in html
+    assert 'href="/download/2"' not in html
+    assert 'href="/download/3"' not in html
+    assert "infecté" in html
