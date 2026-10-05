@@ -1,10 +1,10 @@
 # Secrets
 
-Passwords are injected as **Docker secrets** — mounted as files in
+Passwords are injected as **Docker secrets**: mounted as files in
 `/run/secrets/` inside the containers, never exposed as environment variables
 (so they don't leak through `docker inspect`).
 
-Create these two files locally (they are git-ignored — **never commit real secrets**):
+Create these two files locally (they are git-ignored; **never commit real secrets**):
 
 ```bash
 mkdir -p secrets

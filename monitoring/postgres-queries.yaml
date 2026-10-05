@@ -1,6 +1,6 @@
 # Custom postgres_exporter queries.
 # Exposes the number of documents by scan status straight from PostgreSQL, so
-# the "clean / infected / total" counters are authoritative and persistent —
+# the "clean / infected / total" counters are authoritative and persistent:
 # they reflect the database, not a worker counter that resets on restart.
 #
 # Produces: vault_documents_count{status="clean|infected|pending|error"} <gauge>

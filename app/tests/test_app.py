@@ -123,13 +123,13 @@ def test_read_secret_falls_back_to_env_then_default():
 
 def test_trace_context_survives_kafka_headers():
     """The app injects the trace context into Kafka headers and the worker
-    extracts it — that round-trip is what links an upload to its later scan."""
+    extracts it; that round-trip is what links an upload to its later scan."""
     from opentelemetry import trace
     from opentelemetry.propagate import inject, extract
     from opentelemetry.sdk.trace import TracerProvider
 
     # OTEL_SDK_DISABLED (set above for the app) makes the SDK produce non-recording
-    # spans, which propagate nothing — lift it for this test only.
+    # spans, which propagate nothing, so lift it for this test only.
     os.environ.pop("OTEL_SDK_DISABLED", None)
     try:
         provider = TracerProvider()

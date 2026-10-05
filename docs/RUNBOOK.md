@@ -1,4 +1,4 @@
-# Operations Runbook — Document Vault
+# Operations Runbook: Document Vault
 
 Day-to-day operations guide for the Document Vault platform. Audience: the on-call
 / operations engineer. For a first-time install see [GUIDE.md](GUIDE.md); for the
@@ -56,7 +56,7 @@ the files it mounts. Editing `prometheus.yml`, `alerts.yml` or `nginx/default.co
 therefore changes nothing until the process re-reads them.
 
 **Pushed to `main`, this is now automatic**: `scripts/deploy.sh` diffs the incoming
-revision and reloads only what changed — Prometheus and Nginx in place, Grafana and
+revision and reloads only what changed: Prometheus and Nginx in place, Grafana and
 Promtail by restart. The commands below are for local edits that are not committed.
 
 ```bash
@@ -82,7 +82,7 @@ docker compose restart grafana                   # datasources are read at start
 docker compose ps                         # everything "Up" / "healthy"?
 curl -k -s -o /dev/null -w "%{http_code}\n" https://localhost/    # expect 302
 ```
-- **Grafana** → dashboards: **Document Vault — Application (RED)** (request rate, errors, latency, uploads, scan results), host (Node Exporter), containers (Docker), PostgreSQL, Redis, Prometheus.
+- **Grafana** → dashboards: **Document Vault: Application (RED)** (request rate, errors, latency, uploads, scan results), host (Node Exporter), containers (Docker), PostgreSQL, Redis, Prometheus.
 - **App metrics** → the app exposes `/metrics` internally (blocked at Nginx from outside); the worker exposes `worker:9101/metrics`. Both are scraped by Prometheus (`/targets` → `vault-app`, `vault-worker`).
 - **Traces** → Grafana → Explore → **Tempo** → *Search*, service `vault-app`, operation `POST /upload`. A trace shows the upload span by span (MinIO, PostgreSQL, Redis, Kafka) and, further down the same trace, the `scan document` span produced by the worker. Use it when latency is high but the metrics don't say which backend is to blame.
 
@@ -164,7 +164,7 @@ docker compose up -d <service>
 ### Verifying the antivirus pipeline
 
 The **EICAR test string** is the industry-standard way to check that a scanner is
-live — it is not malware, but every antivirus flags it by design. It is
+live. It is not malware, but every antivirus flags it by design. It is
 deliberately **not committed** to this repository: shipping it would trigger
 antivirus alerts for anyone cloning the project. Generate it locally instead:
 
@@ -194,7 +194,7 @@ ordinary file to confirm the `clean` path. Delete `/tmp/eicar.com` afterwards.
 | **404 page not found** (plain text) on external IP, but `localhost` works | k3s Traefik hijacking port 80 via leftover iptables | `sudo /usr/local/bin/k3s-killall.sh && sudo systemctl restart docker && docker compose up -d` |
 | **Build fails**: `lookup registry-1.docker.io ... i/o timeout` | host DNS (VMware NAT) unreliable | set DNS in netplan (`dhcp4-overrides: use-dns: false` + `nameservers: [8.8.8.8, 1.1.1.1]`) |
 | Alert **HostDiskAlmostFull** | root filesystem full | `df -h`; check `/var/backups/vault` (retention); `docker system prune -f`; extend LVM: `lvextend -l +100%FREE ... && resize2fs ...` |
-| A container in **Restarting** | crash at startup | `docker compose logs <svc>` — read the error first (missing secret, port conflict, OOM...) |
+| A container in **Restarting** | crash at startup | `docker compose logs <svc>` and read the error first (missing secret, port conflict, OOM...) |
 | systemd deploy `203/EXEC` | script not executable | `chmod +x scripts/deploy.sh` |
 
 General method: **container status → logs → ports → resources → network.**
@@ -203,13 +203,13 @@ General method: **container status → logs → ports → resources → network.
 
 ## 8. Incident response process
 
-1. **Detect** — an alert fires (Alertmanager → Telegram) or a user reports.
-2. **Qualify** — impact, severity, scope.
-3. **Restore first** — bring the service back (mitigate), even temporarily.
-4. **Root cause** — diagnose calmly (logs, metrics).
-5. **Fix** — permanent correction.
-6. **Document** — write an incident report (symptom, impact, root cause, fix, prevention).
-7. **Communicate** — inform stakeholders.
+1. **Detect**: an alert fires (Alertmanager → Telegram) or a user reports.
+2. **Qualify**: impact, severity, scope.
+3. **Restore first**: bring the service back (mitigate), even temporarily.
+4. **Root cause**: diagnose calmly (logs, metrics).
+5. **Fix**: permanent correction.
+6. **Document**: write an incident report (symptom, impact, root cause, fix, prevention).
+7. **Communicate**: inform stakeholders.
 
 > Priority: **restore service first, understand later.**
 
@@ -217,8 +217,8 @@ General method: **container status → logs → ports → resources → network.
 
 ## 9. Deployment (CI/CD)
 
-- **CI** — every push runs GitHub Actions: build image + Trivy scan + `docker compose config` + `terraform validate`.
-- **CD** — a systemd timer on the host runs `scripts/deploy.sh` every 2 min: if `origin/main` moved, it pulls and runs `docker compose up -d --build` (pull-based GitOps).
+- **CI**: every push runs GitHub Actions: build image + Trivy scan + `docker compose config` + `terraform validate`.
+- **CD**: a systemd timer on the host runs `scripts/deploy.sh` every 2 min: if `origin/main` moved, it pulls and runs `docker compose up -d --build` (pull-based GitOps).
 
 ```bash
 # CD status / logs
@@ -232,8 +232,8 @@ journalctl -u vault-deploy.service -n 20 --no-pager
 
 | Level | Contact |
 |-------|---------|
-| L1 — on-call ops | _<name / phone>_ |
-| L2 — platform owner | _<name>_ |
-| L3 — vendor / project manager | _<name>_ |
+| L1: on-call ops | _<name / phone>_ |
+| L2: platform owner | _<name>_ |
+| L3: vendor / project manager | _<name>_ |
 
 Keep this list current; a runbook without contacts fails at 3 a.m.

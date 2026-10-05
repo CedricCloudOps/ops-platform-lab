@@ -1,17 +1,17 @@
 # Document Vault on Kubernetes
 
-Kubernetes-native manifests for the whole platform — the equivalent of the Docker
+Kubernetes-native manifests for the whole platform: the equivalent of the Docker
 Compose stack, but orchestrated by Kubernetes (self-healing, scaling, autoscaling,
 rolling updates).
 
-> **Do not run this at the same time as the Docker Compose stack** — see
+> **Do not run this at the same time as the Docker Compose stack**: see
 > [../docs/docker-compose-vs-kubernetes.md](../docs/docker-compose-vs-kubernetes.md).
 
 | File | Contents |
 |------|----------|
 | `00-infra.yaml` | PostgreSQL (**StatefulSet**), Redis, MinIO, Kafka, ClamAV (Deployments + Services + PVCs) |
 | `10-app.yaml` | App Deployment + Service + **HPA**, and the worker Deployment |
-| `20-ingress.yaml` | Ingress rules (needs an Ingress Controller — Traefik ships with k3s) |
+| `20-ingress.yaml` | Ingress rules (needs an Ingress Controller; Traefik ships with k3s) |
 | `app-deployment.yaml` | Standalone Nginx demo used to practise scaling/rollback |
 
 ## Deploy
@@ -84,7 +84,7 @@ cert-manager then obtains the Let's Encrypt certificate, creates the Secret, and
 ## Monitoring
 
 These manifests deliberately contain **no Prometheus/Grafana**: on Kubernetes you
-do not hand-write them. Install the **kube-prometheus-stack** — it ships Prometheus,
+do not hand-write them. Install the **kube-prometheus-stack**: it ships Prometheus,
 Grafana, Alertmanager, node-exporter, kube-state-metrics and dozens of ready-made
 dashboards in one command:
 
@@ -94,22 +94,22 @@ helm install monitoring prometheus-community/kube-prometheus-stack \
   -n monitoring --create-namespace
 ```
 
-How pods are monitored — and how it differs from the Compose stack:
+How pods are monitored, and how it differs from the Compose stack:
 
 | Docker Compose | Kubernetes |
 |----------------|------------|
-| cAdvisor runs as its own container | **Built into the kubelet** (`/metrics/cadvisor`) — nothing to deploy |
-| node-exporter is a service | A **DaemonSet** — one pod per node, automatically |
+| cAdvisor runs as its own container | **Built into the kubelet** (`/metrics/cadvisor`), nothing to deploy |
+| node-exporter is a service | A **DaemonSet**: one pod per node, automatically |
 | Static targets in `prometheus.yml` | **Service discovery**: Prometheus finds pods/services through the Kubernetes API |
-| — | **kube-state-metrics**: state of Kubernetes objects (desired vs ready pods, restarts...) |
-| — | **metrics-server**: lightweight, powers `kubectl top` and the **HPA** only (no history) |
+| (none) | **kube-state-metrics**: state of Kubernetes objects (desired vs ready pods, restarts...) |
+| (none) | **metrics-server**: lightweight, powers `kubectl top` and the **HPA** only (no history) |
 
 With the Prometheus Operator you declare a **`ServiceMonitor`** ("scrape pods with
-this label") and Prometheus reconfigures itself — no more editing `prometheus.yml`.
+this label") and Prometheus reconfigures itself, no more editing `prometheus.yml`.
 
 ## Notes
 
-- **Images**: Kubernetes never builds images — it pulls them. On a single-node lab
+- **Images**: Kubernetes never builds images; it pulls them. On a single-node lab
   we import the image straight into containerd; on a real cluster you push it to a
   registry (GHCR, Docker Hub) and every node pulls from there.
 - **Probes**: the app's `/health` endpoint backs the readiness and liveness probes.

@@ -1,4 +1,4 @@
-# Terraform — provision the Document Vault infrastructure
+# Terraform: provision the Document Vault infrastructure
 
 Provisions an AWS EC2 instance (Ubuntu 24.04) with a security group (SSH/80/443)
 and bootstraps Docker + clones this repo via `user_data`.
@@ -26,4 +26,4 @@ terraform destroy   # tear everything down
   backend (e.g. an S3 bucket + DynamoDB lock).
 - **Credentials**: `apply`/`plan` read AWS credentials from the environment
   (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) or `~/.aws/credentials`.
-- `terraform validate` runs in CI on every push — see `.github/workflows/ci.yml`.
+- `terraform validate` runs in CI on every push (see `.github/workflows/ci.yml`).

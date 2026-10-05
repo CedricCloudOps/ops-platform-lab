@@ -1,10 +1,10 @@
-# Kubernetes architecture — notes
+# Kubernetes architecture: notes
 
 Two views of how Kubernetes works, and why it is not the same as the Docker
 Compose stack in this lab.
 
 > **Compose and Kubernetes are two separate orchestrators.** Kubernetes does not
-> reuse the containers started by Docker Compose — it runs its own containers
+> reuse the containers started by Docker Compose; it runs its own containers
 > through its own runtime (containerd). You pick one per application, not both.
 > See [docker-compose-vs-kubernetes.md](docker-compose-vs-kubernetes.md).
 
@@ -18,20 +18,20 @@ services outside the cluster**.
 
 ![Production Kubernetes topology](images/production-kubernetes-topology.svg)
 
-## 2. Cluster anatomy — control plane + workers
+## 2. Cluster anatomy: control plane + workers
 
 A cluster is **several machines**, not one VM:
 
-**Control plane (the brain — pilots the cluster, does not run your apps):**
+**Control plane (the brain: pilots the cluster, does not run your apps):**
 
 | Component | Role |
 |-----------|------|
-| `kube-apiserver` | Central hub — everything goes through it |
+| `kube-apiserver` | Central hub, everything goes through it |
 | `etcd` | Key-value store holding the cluster state |
 | `kube-scheduler` | Decides which node runs each new pod |
-| `kube-controller-manager` | Reconciliation loops — self-healing |
+| `kube-controller-manager` | Reconciliation loops (self-healing) |
 
-**Worker nodes (the muscle — run the pods):**
+**Worker nodes (the muscle: run the pods):**
 
 | Component | Role |
 |-----------|------|
@@ -45,7 +45,7 @@ A cluster is **several machines**, not one VM:
 In production the control plane runs in **3 copies** for high availability, and
 you add worker nodes to scale. A minimal HA cluster is therefore ~5-6 machines.
 
-## Flow — what happens first
+## Flow: what happens first
 
 1. `kubectl apply` → **kube-apiserver**
 2. The API server stores the desired state → **etcd**

@@ -1,9 +1,9 @@
-# ops-platform-lab — Document Vault
+# ops-platform-lab: Document Vault
 
 ![CI](https://github.com/CedricCloudOps/ops-platform-lab/actions/workflows/ci.yml/badge.svg)
 
 A hands-on platform that **deploys, secures, observes and continuously delivers** a
-*Document Vault* service — a full, production-style operations stack on a hardened
+*Document Vault* service: a full, production-style operations stack on a hardened
 Linux host, then on a Kubernetes cluster. Every uploaded file is stored, indexed,
 and **scanned for viruses** through an event-driven pipeline. Built to demonstrate
 the skills of a **System & Software Operations Engineer**.
@@ -11,14 +11,14 @@ the skills of a **System & Software Operations Engineer**.
 **Author:** Cedric Severin DJIGUIMDE
 
 ## Highlights
-- **Event-driven antivirus** — each upload triggers a Kafka worker that scans the file with **ClamAV** and records the verdict.
-- **Full observability (3 pillars)** — metrics (**Prometheus**), logs (**Loki**), alerts (**Alertmanager**); Grafana dashboards provisioned as code.
-- **Application-level metrics (RED)** — the app and the antivirus worker expose their own `/metrics`: request rate, error rate and latency percentiles, plus business counters (uploads, clean/infected scans) on a dedicated Grafana dashboard.
-- **Distributed tracing** — **OpenTelemetry → Tempo**: every upload is traced through MinIO, PostgreSQL, Redis and Kafka, and the trace context is carried in the Kafka headers so the antivirus scan that happens seconds later, in another process, joins the **same trace**.
-- **Secure by default** — HTTPS/TLS, session authentication, **Docker secrets** (no plaintext passwords), **Trivy** image scanning in CI.
-- **Orchestration** — Docker Compose *and* Kubernetes (k3s): scaling, self-healing, rolling updates, rollback.
-- **Infrastructure as Code** — **Terraform** (validated in CI) + Ansible.
-- **Continuous delivery** — pull-based **GitOps** deployment.
+- **Event-driven antivirus**: each upload triggers a Kafka worker that scans the file with **ClamAV** and records the verdict.
+- **Full observability (3 pillars)**: metrics (**Prometheus**), logs (**Loki**), alerts (**Alertmanager**); Grafana dashboards provisioned as code.
+- **Application-level metrics (RED)**: the app and the antivirus worker expose their own `/metrics`: request rate, error rate and latency percentiles, plus business counters (uploads, clean/infected scans) on a dedicated Grafana dashboard.
+- **Distributed tracing**: **OpenTelemetry → Tempo**: every upload is traced through MinIO, PostgreSQL, Redis and Kafka, and the trace context is carried in the Kafka headers so the antivirus scan that happens seconds later, in another process, joins the **same trace**.
+- **Secure by default**: HTTPS/TLS, session authentication, **Docker secrets** (no plaintext passwords), **Trivy** image scanning in CI.
+- **Orchestration**: Docker Compose *and* Kubernetes (k3s): scaling, self-healing, rolling updates, rollback.
+- **Infrastructure as Code**: **Terraform** (validated in CI) + Ansible.
+- **Continuous delivery**: pull-based **GitOps** deployment.
 
 ## Architecture
 
@@ -54,7 +54,7 @@ watch everything.
 ## Tech stack
 | Layer | Technology |
 |-------|------------|
-| OS | Ubuntu — hardened (SSH keys, UFW, fail2ban), root FS on LVM |
+| OS | Ubuntu, hardened (SSH keys, UFW, fail2ban), root FS on LVM |
 | Containers | Docker & Docker Compose |
 | Application | Flask (Python) |
 | Security | HTTPS/TLS (Nginx), session auth, Docker secrets, Trivy image scanning |
@@ -79,69 +79,69 @@ watch everything.
 
 All dashboards are **provisioned as code** (data source + dashboards auto-loaded on startup).
 
-**Grafana — application dashboard (RED metrics + antivirus verdicts)**
+**Grafana: application dashboard (RED metrics + antivirus verdicts)**
 
 Request rate, error rate and latency percentiles (the RED method), plus document
-counts by scan status read straight from PostgreSQL — an EICAR upload lights up the
+counts by scan status read straight from PostgreSQL: an EICAR upload lights up the
 "Infected documents" panel in red.
 
-![Application dashboard — RED metrics and antivirus verdicts](docs/screenshots/vault-app.png)
+![Application dashboard: RED metrics and antivirus verdicts](docs/screenshots/vault-app.png)
 
-**Grafana Tempo — one upload traced across two services**
+**Grafana Tempo: one upload traced across two services**
 
 The trace starts in `vault-app` (`POST /upload`, 268 ms) and continues in
-`vault-worker` (`scan document`, 6.06 s) — a different process, seconds later, on
+`vault-worker` (`scan document`, 6.06 s), a different process, seconds later, on
 the other side of Kafka: the trace context travels in the message headers. The
 answer is immediate and would be invisible in the totals: the upload itself is
-fast, **`clamav.scan` accounts for 5.94 s of the 6.35 s** — the antivirus, not the
+fast, **`clamav.scan` accounts for 5.94 s of the 6.35 s**: the antivirus, not the
 object storage or the database.
 
 ![Distributed trace of an upload, span by span, from the app to the antivirus worker](docs/screenshots/tempo-trace.png)
 
-Same trace as a node graph — Tempo colours the dominant node red on its own:
+Same trace as a node graph (Tempo colours the dominant node red on its own):
 
 ![Node graph of the same trace, with the antivirus scan highlighted as the bottleneck](docs/screenshots/tempo-nodegraph.png)
 
-**Grafana — host metrics (Node Exporter)**
+**Grafana: host metrics (Node Exporter)**
 
 ![Grafana host dashboard](docs/screenshots/grafana.png)
 
-**Grafana — per-container metrics (cAdvisor)**
+**Grafana: per-container metrics (cAdvisor)**
 
 ![Grafana Docker monitoring dashboard](docs/screenshots/docker-monitoring.png)
 
-**Grafana — Prometheus internals (targets, TSDB, scrape health)**
+**Grafana: Prometheus internals (targets, TSDB, scrape health)**
 
 ![Grafana Prometheus dashboard](docs/screenshots/prometheus.png)
 
-**Grafana — PostgreSQL (custom dashboard, built as code)**
+**Grafana: PostgreSQL (custom dashboard, built as code)**
 
 ![Grafana PostgreSQL dashboard](docs/screenshots/postgres.png)
 
-**Kubernetes — pods (k3s)**
+**Kubernetes: pods (k3s)**
 
 ![Kubernetes pods](docs/screenshots/kubernetes.png)
 
 <details>
 <summary><b>More monitoring views</b></summary>
 
-**Docker monitoring — memory & network per container**
+**Docker monitoring: memory & network per container**
 
 ![Docker memory and network](docs/screenshots/docker-monitoring-network.png)
 
-**Prometheus — scrape targets & sync**
+**Prometheus: scrape targets & sync**
 
 ![Prometheus targets](docs/screenshots/prometheus-targets.png)
 
-**Prometheus — TSDB internals**
+**Prometheus: TSDB internals**
 
 ![Prometheus TSDB](docs/screenshots/prometheus-tsdb.png)
 
-**Prometheus — query engine**
+**Prometheus: query engine**
 
 ![Prometheus query engine](docs/screenshots/prometheus-engine.png)
 
-**Redis — exporter dashboard**
+**Redis: exporter dashboard**
 
 ![Redis dashboard](docs/screenshots/redis.png)
 
@@ -156,14 +156,14 @@ Same trace as a node graph — Tempo colours the dominant node red on its own:
 
 | Requirement | Details |
 |-------------|---------|
-| OS | A Linux host — tested on **Ubuntu 24.04 LTS** |
+| OS | A Linux host, tested on **Ubuntu 24.04 LTS** |
 | CPU / RAM | 2 vCPU and **4 GB RAM** minimum; **8 GB recommended** (Kafka, ClamAV and the monitoring stack are memory-hungry) |
-| Disk | **20 GB** free — ClamAV signatures, container images and Prometheus data grow over time |
+| Disk | **20 GB** free (ClamAV signatures, container images and Prometheus data grow over time) |
 | Software | **Docker Engine 24+** and the **Docker Compose v2** plugin (`docker compose version`), **git**, **openssl** |
 | Access | SSH access with a `sudo`-capable user |
 | Ports | `80` and `443` (Nginx), `3000` (Grafana), `9090` (Prometheus), `9093` (Alertmanager), `9001` (MinIO console) free on the host |
 
-> ⚠️ **Do not run Kubernetes (k3s) and Docker Compose on the same host** — k3s installs
+> ⚠️ **Do not run Kubernetes (k3s) and Docker Compose on the same host**: k3s installs
 > iptables rules that hijack port 80 even when the service is stopped. See
 > [docs/docker-compose-vs-kubernetes.md](docs/docker-compose-vs-kubernetes.md).
 
@@ -199,16 +199,16 @@ kubectl rollout undo deployment/web           # rollback
 ```
 
 ## Delivery (CI/CD & IaC)
-- **CI** — `.github/workflows/ci.yml`: **runs the unit tests first**, then builds the app image, **scans it with Trivy**, and validates the Compose file and the Terraform config on every push. The image is only built if the tests pass (`needs: test`).
-- **CD** — pull-based **GitOps**: a systemd timer (`scripts/vault-deploy.timer`) reconciles the host with `origin/main` every 2 minutes.
-- **Backup** — `scripts/backup.sh`, run nightly by `scripts/vault-backup.timer`: PostgreSQL dump (checked with `pg_restore --list`) and MinIO bucket mirror in the same folder; restore steps in the [RUNBOOK](docs/RUNBOOK.md).
-- **IaC** — `terraform/` provisions the cloud VM (EC2 + security group + Docker bootstrap); `ansible/playbook.yml` installs Docker idempotently.
+- **CI**: `.github/workflows/ci.yml`: **runs the unit tests first**, then builds the app image, **scans it with Trivy**, and validates the Compose file and the Terraform config on every push. The image is only built if the tests pass (`needs: test`).
+- **CD**: pull-based **GitOps**: a systemd timer (`scripts/vault-deploy.timer`) reconciles the host with `origin/main` every 2 minutes.
+- **Backup**: `scripts/backup.sh`, run nightly by `scripts/vault-backup.timer`: PostgreSQL dump (checked with `pg_restore --list`) and MinIO bucket mirror in the same folder; restore steps in the [RUNBOOK](docs/RUNBOOK.md).
+- **IaC**: `terraform/` provisions the cloud VM (EC2 + security group + Docker bootstrap); `ansible/playbook.yml` installs Docker idempotently.
 
 ## Documentation
-- **[docs/GUIDE.md](docs/GUIDE.md)** — full deployment guide, step by step, from server hardening to Kubernetes.
-- **[docs/RUNBOOK.md](docs/RUNBOOK.md)** — day-to-day operations: start/stop, health checks, backup/restore, troubleshooting, incident response.
-- **[docs/docker-compose-vs-kubernetes.md](docs/docker-compose-vs-kubernetes.md)** — why Compose and Kubernetes must not run together, and how to fix the port 80 / iptables conflict.
-- **[docs/known-limitations.md](docs/known-limitations.md)** — what is deliberately simplified in this lab, and what production would do instead.
+- **[docs/GUIDE.md](docs/GUIDE.md)**: full deployment guide, step by step, from server hardening to Kubernetes.
+- **[docs/RUNBOOK.md](docs/RUNBOOK.md)**: day-to-day operations: start/stop, health checks, backup/restore, troubleshooting, incident response.
+- **[docs/docker-compose-vs-kubernetes.md](docs/docker-compose-vs-kubernetes.md)**: why Compose and Kubernetes must not run together, and how to fix the port 80 / iptables conflict.
+- **[docs/known-limitations.md](docs/known-limitations.md)**: what is deliberately simplified in this lab, and what production would do instead.
 
 ## License
 

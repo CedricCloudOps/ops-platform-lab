@@ -122,7 +122,7 @@ off-site, and terminate TLS at Nginx (Let's Encrypt in production).
 
 ## 7. Kubernetes (k3s)
 
-> **Important — do not run k3s and the Docker Compose stack at the same time.**
+> **Important: do not run k3s and the Docker Compose stack at the same time.**
 > They are two independent orchestrators and both fight for port 80 (Nginx vs
 > Traefik). Stopping k3s does **not** remove its iptables rules, so it keeps
 > hijacking the external IP. See
@@ -151,8 +151,8 @@ The stack is progressively migrated from Compose to Kubernetes manifests under
 
 ## 8. Automation & CI/CD
 
-- **Ansible** — provision the host (updates, hardening, Docker) declaratively.
-- **GitHub Actions** — build the application image on every push:
+- **Ansible**: provision the host (updates, hardening, Docker) declaratively.
+- **GitHub Actions**: build the application image on every push:
 
 ```yaml
 name: build

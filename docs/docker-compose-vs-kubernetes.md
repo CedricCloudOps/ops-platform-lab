@@ -1,4 +1,4 @@
-# Docker Compose vs Kubernetes — they are NOT meant to run together
+# Docker Compose vs Kubernetes: they are NOT meant to run together
 
 ## Common misconception
 
@@ -6,7 +6,7 @@
 > containers to do autoscaling, replication, etc."
 
 **This is wrong.** Docker Compose and Kubernetes are **two independent
-orchestrators**. Kubernetes does **not** reuse Compose containers — it runs its
+orchestrators**. Kubernetes does **not** reuse Compose containers; it runs its
 own containers (as *pods*) through its own runtime (**containerd**). You pick
 **one** platform for a given application.
 
@@ -41,11 +41,11 @@ flowchart LR
 
 ## Symptom
 
-- `curl https://localhost/` works — Nginx answers (HTTP 302 -> /login)
+- `curl https://localhost/` works: Nginx answers (HTTP 302 -> /login)
 - but the browser on the **external IP** shows **`404 page not found`**
   (that plain-text 404 is Traefik's signature, not Nginx)
 
-## Fix — fully remove k3s interference
+## Fix: fully remove k3s interference
 
 ```bash
 # 1. Kill all k3s containers AND flush its iptables rules
@@ -76,5 +76,5 @@ curl -kI https://<VM_IP>/
 
    Then reach Kubernetes services through their **NodePort** (e.g. `:30080`).
 
-3. **In production, separate them entirely** — Docker Compose and Kubernetes never
+3. **In production, separate them entirely**: Docker Compose and Kubernetes never
    share a machine. Compose runs on its own VM; Kubernetes is a multi-node cluster.

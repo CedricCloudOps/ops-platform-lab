@@ -1,6 +1,6 @@
 {
   "uid": "vault-app",
-  "title": "Document Vault — Application (RED)",
+  "title": "Document Vault: Application (RED)",
   "tags": ["vault", "application", "red"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -81,7 +81,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "HTTP latency (Duration) — p50 / p95 / p99",
+      "title": "HTTP latency (Duration): p50 / p95 / p99",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
@@ -125,7 +125,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Scan duration — p95",
+      "title": "Scan duration: p95",
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },

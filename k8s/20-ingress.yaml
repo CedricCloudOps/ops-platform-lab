@@ -11,7 +11,7 @@
 #
 # Then add "vault.local" to your client's hosts file, pointing at the node IP.
 # In production you would NOT do this by hand: install cert-manager and annotate
-# this Ingress with `cert-manager.io/cluster-issuer: letsencrypt-prod` — it obtains
+# this Ingress with `cert-manager.io/cluster-issuer: letsencrypt-prod`; it obtains
 # and renews Let's Encrypt certificates automatically.
 apiVersion: networking.k8s.io/v1
 kind: Ingress

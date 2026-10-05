@@ -17,7 +17,7 @@
           - curl
         state: present
 
-    - name: Install Docker (idempotent — skipped if already present)
+    - name: Install Docker (idempotent, skipped if already present)
       ansible.builtin.shell: curl -fsSL https://get.docker.com | sh
       args:
         creates: /usr/bin/docker

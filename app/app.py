@@ -253,7 +253,7 @@ a.doc-name:hover{color:var(--accent);text-decoration:underline}
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M12 6v3M12 15v3M18 12h-3M9 12H6"/></svg>
       Document Vault
     </h1>
-    <p>Stockage sécurisé de documents — pipeline conteneurisé</p>
+    <p>Stockage sécurisé de documents (pipeline conteneurisé)</p>
     <div class="chips">
       <span class="chip">Flask</span><span class="chip">PostgreSQL</span>
       <span class="chip">MinIO (S3)</span><span class="chip">Redis</span>
@@ -316,7 +316,7 @@ LOGIN_PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connexion — Document Vault</title>
+<title>Connexion | Document Vault</title>
 <style>
 :root{--bg:#eef1f8;--card:#fff;--text:#141a29;--muted:#6b7280;--border:#e5e8f0;
   --accent:#4f46e5;--accent2:#7c3aed;--ring:rgba(79,70,229,.35);
@@ -408,8 +408,8 @@ def upload():
     try:
         with UPLOAD_STEP.labels("kafka").time():
             # Carry the trace context in the Kafka headers (W3C traceparent), so
-            # the worker's scan — which happens seconds later, in another
-            # process — shows up in the SAME trace as this upload.
+            # the worker's scan (which happens seconds later, in another
+            # process) shows up in the SAME trace as this upload.
             carrier = {}
             inject(carrier)
             headers = [(k, v.encode()) for k, v in carrier.items()]
